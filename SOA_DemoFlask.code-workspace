@@ -1,0 +1,13 @@
+{
+  "folders": [
+	{
+		"path": "../../SOA_DemoFlask"
+	},
+	{
+		"path": ".."
+	}
+],
+  "settings": {
+    "liveServer.settings.multiRootWorkspaceName": "demo"
+  }
+}
