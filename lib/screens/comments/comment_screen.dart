@@ -18,34 +18,14 @@ class _CommentScreenState extends State<CommentScreen> {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
-  // Dữ liệu mẫu cho comments
-  final List<Map<String, String>> _comments = [
-    {
-      'author': 'linguyen',
-      'avatar': 'https://i.pravatar.cc/150?img=12',
-      'text': 'Bài viết hay quá! Thích lắm 😍',
-      'time': '2 giờ trước',
-    },
-    {
-      'author': 'meokun',
-      'avatar': 'https://i.pravatar.cc/150?img=13',
-      'text': 'Mình cũng muốn đi du lịch như vậy. Có tip gì không?',
-      'time': '1 giờ trước',
-    },
-    {
-      'author': 'travel_love',
-      'avatar': 'https://i.pravatar.cc/150?img=14',
-      'text': 'Chụp ảnh đẹp thật! Location đâu vậy?',
-      'time': '30 phút trước',
-    },
-  ];
+  // Mock comments - will load from Firebase
+  final List<Map<String, String>> _comments = [];
 
   void _addComment() {
     if (_commentController.text.trim().isNotEmpty) {
       setState(() {
         _comments.insert(0, {
-          'author': 'buitruonggiang', // Giả sử user hiện tại
-          'avatar': 'https://i.pravatar.cc/150?img=11',
+          'author': 'You',
           'text': _commentController.text.trim(),
           'time': 'Vừa xong',
         });
@@ -88,7 +68,7 @@ class _CommentScreenState extends State<CommentScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          // Header với post info
+          // Header with post info
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.all(horizontalPadding),
@@ -99,7 +79,7 @@ class _CommentScreenState extends State<CommentScreen> {
                     children: [
                       const CircleAvatar(
                         radius: 16,
-                        backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=20'),
+                        child: Icon(Icons.person, size: 16),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -126,25 +106,47 @@ class _CommentScreenState extends State<CommentScreen> {
             ),
           ),
           // List comments
-          SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                childCount: _comments.length,
-                (context, index) {
-                  final comment = _comments[index];
-                  return _buildCommentItem(comment);
-                },
+          if (_comments.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.comment_outlined, size: 64, color: Colors.grey[400]),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Chưa có bình luận',
+                      style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Hãy là người đầu tiên bình luận!',
+                      style: TextStyle(color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  childCount: _comments.length,
+                  (context, index) {
+                    final comment = _comments[index];
+                    return _buildCommentItem(comment);
+                  },
+                ),
               ),
             ),
-          ),
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
       ),
       // Input comment
       bottomNavigationBar: Container(
         padding: EdgeInsets.fromLTRB(horizontalPadding, horizontalPadding, horizontalPadding, 30),
-        height: 100, // Tăng height để chứa margin bottom
+        height: 100,
         child: Row(
           children: [
             Expanded(
@@ -181,9 +183,9 @@ class _CommentScreenState extends State<CommentScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 16,
-            backgroundImage: NetworkImage(comment['avatar']!),
+            child: Icon(Icons.person, size: 16),
           ),
           const SizedBox(width: 8),
           Expanded(

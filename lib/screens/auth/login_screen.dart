@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
 import '../../utils/validators.dart';
 import '../../widgets/auth_scaffold.dart';
 import '../../widgets/text_field_label.dart';
-import 'forgot_password_screen.dart';
-import 'register_screen.dart';
-import '../home/home_screen.dart'; // Import HomeScreen để navigate
+import '../../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
-  static const routeName = '/login'; // Đổi thành '/login' để tránh conflict với '/'
+  static const routeName = '/login';
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -19,8 +17,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(); // Thêm controller cho email
-  final _passwordController = TextEditingController(); // Thêm controller cho password
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
@@ -38,29 +36,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
-      // Demo: Kiểm tra tài khoản mẫu
-      final email = _emailController.text.trim();
-      final password = _passwordController.text.trim();
-      if (email == 'admin@gmail.com' && password == '123456') {
-        // Lưu trạng thái đăng nhập
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('isLoggedIn', true);
-        await prefs.setString('userEmail', email); // Lưu thêm email nếu cần
-        if (mounted) {
+      final authProvider = context.read<AuthProvider>();
+      
+      final success = await authProvider.signIn(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      if (mounted) {
+        if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Đăng nhập thành công!')),
           );
-          // Delay ngắn để hiển thị snackbar, rồi navigate
-          await Future.delayed(const Duration(milliseconds: 1500));
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
-        }
-      } else {
-        if (mounted) {
+          // Navigation will be handled automatically by main.dart
+        } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Email hoặc mật khẩu không đúng! Thử: demo@example.com / 123456')),
+            SnackBar(
+              content: Text(authProvider.error ?? 'Đăng nhập thất bại'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -72,57 +66,73 @@ class _LoginScreenState extends State<LoginScreen> {
     return AuthScaffold(
       title: 'Chào mừng trở lại 👋',
       subtitle: 'Đăng nhập để tiếp tục trải nghiệm.',
-      form: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const TextFieldLabel('Email'),
-            TextFormField(
-              controller: _emailController, // Gán controller
-              keyboardType: TextInputType.emailAddress,
-              validator: requiredValidator, // Hoặc emailValidator nếu có
-            ),
-            const SizedBox(height: 20),
-            const TextFieldLabel('Mật khẩu'),
-            TextFormField(
-              controller: _passwordController, // Gán controller
-              obscureText: _obscurePassword,
-              validator: requiredValidator,
-              decoration: InputDecoration(
-                suffixIcon: IconButton(
-                  onPressed: _togglePassword,
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+      form: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          return Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const TextFieldLabel('Email'),
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: requiredValidator,
+                  enabled: !authProvider.isLoading,
+                ),
+                const SizedBox(height: 20),
+                const TextFieldLabel('Mật khẩu'),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  validator: requiredValidator,
+                  enabled: !authProvider.isLoading,
+                  decoration: InputDecoration(
+                    suffixIcon: IconButton(
+                      onPressed: _togglePassword,
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  ForgotPasswordScreen.routeName,
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: authProvider.isLoading
+                        ? null
+                        : () => Navigator.pushNamed(
+                              context,
+                              '/forgot-password',
+                            ),
+                    child: const Text('Quên mật khẩu?'),
+                  ),
                 ),
-                child: const Text('Quên mật khẩu?'),
-              ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: authProvider.isLoading ? null : _submit,
+                  child: authProvider.isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Đăng nhập'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: authProvider.isLoading
+                      ? null
+                      : () => Navigator.pushNamed(context, '/register'),
+                  child: const Text('Tạo tài khoản mới'),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _submit,
-              child: const Text('Đăng nhập'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: () => Navigator.pushNamed(
-                context,
-                RegisterScreen.routeName,
-              ),
-              child: const Text('Tạo tài khoản mới'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

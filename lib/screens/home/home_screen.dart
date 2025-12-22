@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/auth_provider.dart';
+import '../../providers/post_provider.dart';
 import 'create_post_screen.dart';
 import 'story_upload_screen.dart';
-import '../comments/comment_screen.dart'; // Import CommentScreen
+import '../comments/comment_screen.dart';
 import 'SearchScreen.dart';
 import '../notification/notifications_screen.dart';
-import '../notification/friend_requests_screen.dart'; // Import full screen for stack
-import '../profile/profile_screen.dart'; // Import full screen for stack
+import '../notification/friend_requests_screen.dart';
+import '../profile/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,34 +20,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  bool _isAddPressed = false; // trạng thái nhấn nút +
+  bool _isAddPressed = false;
 
-  // Danh sách nội dung tab (IndexedStack cho tất cả tab 0/1/3/4, tab 2 là add không thay đổi content)
-  late final List<Widget> _tabs = [
-    _buildHomeContent(), // Tab 0: Home
-    const SearchScreen(), // Tab 1: Search
-    const FriendRequestsScreen(), // Tab 2: Friends (thay thế index 3 trong nav)
-    const ProfileScreen(), // Tab 3: Profile (thay thế index 4 trong nav)
-  ];
+  late final List<Widget> _tabs;
 
-  // Dữ liệu mẫu cho Home
-  final List<Map<String, String>> _stories = [
-    {'name': 'buitruonggiang', 'avatar': 'https://i.pravatar.cc/150?img=11'},
-    {'name': 'linguyen', 'avatar': 'https://i.pravatar.cc/150?img=12'},
-    {'name': 'meokun', 'avatar': 'https://i.pravatar.cc/150?img=13'},
-    {'name': 'travel_love', 'avatar': 'https://i.pravatar.cc/150?img=14'},
-    {'name': 'photography', 'avatar': 'https://i.pravatar.cc/150?img=15'},
-  ];
-
-  final List<Map<String, String>> _posts = List.generate(
-    5,
-    (i) => {
-      'author': 'user$i',
-      'avatar': 'https://i.pravatar.cc/150?img=${20 + i}',
-      'image': 'https://picsum.photos/seed/post$i/800/800',
-      'caption': 'Đây là bài viết demo số ${i + 1}',
-    },
-  );
+  @override
+  void initState() {
+    super.initState();
+    _tabs = [
+      _buildHomeContent(),
+      const SearchScreen(),
+      const FriendRequestsScreen(),
+      const ProfileScreen(),
+    ];
+  }
 
   Future<void> _onNavTapped(int index) async {
     if (index == 2) {
@@ -269,7 +258,8 @@ class _HomeScreenState extends State<HomeScreen> {
             color: selected ? Colors.grey.shade200 : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
           ),
-          child: Center(
+          child: GestureDetector(
+            onTap: () => setState(() => _selectedIndex = 4),
             child: Container(
               width: 28,
               height: 28,
@@ -282,7 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: const CircleAvatar(
                 radius: 14,
-                backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5'),
+                child: Icon(Icons.person, size: 14),
               ),
             ),
           ),
@@ -291,47 +281,97 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Nội dung tab Home
+  // Nội dung tab Home - Load từ Firebase
   Widget _buildHomeContent() {
-    final width = MediaQuery.of(context).size.width;
-    final horizontalPadding = width > 600 ? 24.0 : 12.0;
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: 110,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              itemCount: _stories.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) return _buildYourStory();
-                final s = _stories[index - 1];
-                return _buildStoryItem(name: s['name']!, avatarUrl: s['avatar']!);
-              },
+    return Consumer2<PostProvider, AuthProvider>(
+      builder: (context, postProvider, authProvider, _) {
+        final posts = postProvider.posts;
+        final currentUser = authProvider.userModel;
+
+        return CustomScrollView(
+          slivers: [
+            // Header with user avatar
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundImage: currentUser?.photoURL != null
+                          ? NetworkImage(currentUser!.photoURL!)
+                          : null,
+                      child: currentUser?.photoURL == null
+                          ? const Icon(Icons.person, size: 20)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Xin chào, ${currentUser?.displayName ?? "User"}!',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-        const SliverToBoxAdapter(child: Divider(height: 1)),
-        SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              childCount: _posts.length,
-              (context, index) {
-                final p = _posts[index];
-                return _buildPostCard(
-                  author: p['author']!,
-                  avatarUrl: p['avatar']!,
-                  imageUrl: p['image']!,
-                  caption: p['caption']!,
-                );
-              },
-            ),
-          ),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: 100)),
-      ],
+            const SliverToBoxAdapter(child: Divider(height: 1)),
+
+            // Posts from Firebase
+            if (postProvider.isLoading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (posts.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.photo_library_outlined,
+                          size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Chưa có bài viết nào',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Hãy tạo bài viết đầu tiên!',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: posts.length,
+                    (context, index) {
+                      final post = posts[index];
+                      final author = postProvider.getPostAuthor(post.userId);
+
+                      return _buildPostCard(
+                        post: post,
+                        author: author,
+                        currentUserId: currentUser?.uid ?? '',
+                      );
+                    },
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        );
+      },
     );
   }
 
@@ -342,63 +382,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Các hàm helper cho Home (giữ nguyên)
-  Widget _buildYourStory() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Column(
-        children: [
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              CircleAvatar(radius: 30, backgroundColor: Colors.grey[300]),
-              Container(
-                decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
-                padding: const EdgeInsets.all(2),
-                child: const Icon(Icons.add, size: 16, color: Colors.white),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          const Text('Tin của bạn', style: TextStyle(fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStoryItem({required String name, required String avatarUrl}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(colors: [Colors.orange, Colors.pink, Colors.purple]),
-            ),
-            child: CircleAvatar(radius: 28, backgroundImage: NetworkImage(avatarUrl)),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 70,
-            child: Text(
-              name,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPostCard({
-    required String author,
-    required String avatarUrl,
-    required String imageUrl,
-    required String caption,
+    required dynamic post,
+    required dynamic author,
+    required String currentUserId,
   }) {
     final width = MediaQuery.of(context).size.width;
     final aspect = width > 500 ? 16 / 9 : 4 / 5;
@@ -408,31 +395,63 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: CircleAvatar(backgroundImage: NetworkImage(avatarUrl)),
-          title: Text(author, style: const TextStyle(fontWeight: FontWeight.w600)),
+          leading: CircleAvatar(
+            backgroundImage: author?.photoURL != null
+                ? NetworkImage(author!.photoURL!)
+                : null,
+            child: author?.photoURL == null
+                ? const Icon(Icons.person)
+                : null,
+          ),
+          title: Text(
+            author?.displayName ?? 'Unknown User',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           trailing: const Icon(Icons.more_vert),
         ),
-        AspectRatio(
-          aspectRatio: aspect,
-          child: Container(
-            width: double.infinity,
-            color: Colors.grey[200],
-            child: Image.network(imageUrl, fit: BoxFit.cover),
+        // Display post images
+        if (post.imageUrls.isNotEmpty)
+          AspectRatio(
+            aspectRatio: aspect,
+            child: Container(
+              width: double.infinity,
+              color: Colors.grey[200],
+              child: Image.network(
+                post.imageUrls[0],
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
+                    child: Icon(Icons.broken_image,
+                        size: 64, color: Colors.grey[400]),
+                  );
+                },
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
-        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 6),
           child: Row(
             children: [
               IconButton(onPressed: () {}, icon: const Icon(Icons.favorite_border)),
-              const SizedBox(width: 6),
+              const SizedBox(width: 6),  
               IconButton(
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => CommentScreen(
-                        postAuthor: author,
-                        postCaption: caption,
+                        postAuthor: author?.displayName ?? 'Unknown',
+                        postCaption: post.caption,
                       ),
                     ),
                   );
@@ -451,17 +470,43 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('1.171 lượt thích', style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(color: Colors.black),
-                  children: [
-                    TextSpan(text: '$author ', style: const TextStyle(fontWeight: FontWeight.w600)),
-                    TextSpan(text: caption),
-                  ],
-                ),
+              Text(
+                '${post.likesCount} lượt thích',
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
+              const SizedBox(height: 6),
+              if (post.caption.isNotEmpty)
+                RichText(
+                  text: TextSpan(
+                    style: const TextStyle(color: Colors.black),
+                    children: [
+                      TextSpan(
+                        text: '${author?.username ?? "user"} ',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      TextSpan(text: post.caption),
+                    ],
+                  ),
+                ),
+              if (post.commentsCount > 0) ...[
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CommentScreen(
+                          postAuthor: author?.displayName ?? 'Unknown',
+                          postCaption: post.caption,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'Xem tất cả ${post.commentsCount} bình luận',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -8,28 +8,13 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   bool _isSearching = false;
 
-  // Dữ liệu mẫu cho kết quả tìm kiếm (users và posts)
-  final List<Map<String, String>> _sampleUsers = [
-    {'name': 'buitruonggiang', 'username': '@buitruonggiang', 'avatar': 'https://i.pravatar.cc/150?img=1'},
-    {'name': 'linguyen', 'username': '@linguyen', 'avatar': 'https://i.pravatar.cc/150?img=2'},
-    {'name': 'meokun', 'username': '@meokun', 'avatar': 'https://i.pravatar.cc/150?img=3'},
-    {'name': 'travel_love', 'username': '@travel_love', 'avatar': 'https://i.pravatar.cc/150?img=4'},
-    {'name': 'photography', 'username': '@photography', 'avatar': 'https://i.pravatar.cc/150?img=5'},
-  ];
-
-  final List<Map<String, String>> _samplePosts = List.generate(
-    5,
-    (i) => {
-      'author': 'user$i',
-      'avatar': 'https://i.pravatar.cc/150?img=${10 + i}',
-      'image': 'https://picsum.photos/seed/search$i/400/400',
-      'caption': 'Kết quả tìm kiếm demo số ${i + 1}',
-    },
-  );
+  // Mock data tạm thời - sẽ thay bằng Firebase search sau
+  final List<Map<String, String>> _mockUsers = [];
+  final List<Map<String, String>> _mockPosts = [];
 
   List<Map<String, String>> _filteredUsers = [];
   List<Map<String, String>> _filteredPosts = [];
@@ -37,31 +22,31 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    _filteredUsers = List.from(_sampleUsers);
-    _filteredPosts = List.from(_samplePosts);
-    _searchController.addListener(_onSearchChanged);
+    _filteredUsers = List.from(_mockUsers);
+    _filteredPosts = List.from(_mockPosts);
+    _searchCtrl.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
   void _onSearchChanged() {
     setState(() {
-      _searchQuery = _searchController.text.toLowerCase();
+      _searchQuery = _searchCtrl.text.toLowerCase();
       _isSearching = _searchQuery.isNotEmpty;
       if (_isSearching) {
-        _filteredUsers = _sampleUsers.where((user) =>
+        _filteredUsers = _mockUsers.where((user) =>
             user['name']!.toLowerCase().contains(_searchQuery) ||
             user['username']!.toLowerCase().contains(_searchQuery)).toList();
-        _filteredPosts = _samplePosts.where((post) =>
+        _filteredPosts = _mockPosts.where((post) =>
             post['author']!.toLowerCase().contains(_searchQuery) ||
             post['caption']!.toLowerCase().contains(_searchQuery)).toList();
       } else {
-        _filteredUsers = List.from(_sampleUsers);
-        _filteredPosts = List.from(_samplePosts);
+        _filteredUsers = List.from(_mockUsers);
+        _filteredPosts = List.from(_mockPosts);
       }
     });
   }
@@ -78,14 +63,14 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Padding(
             padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 16),
             child: TextField(
-              controller: _searchController,
+              controller: _searchCtrl,
               decoration: InputDecoration(
                 hintText: 'Tìm kiếm người dùng, bài viết...',
                 prefixIcon: const Icon(Icons.search, color: Colors.black54),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, color: Colors.black54),
-                        onPressed: () => _searchController.clear(),
+                        onPressed: () => _searchCtrl.clear(),
                       )
                     : null,
                 filled: true,
@@ -193,7 +178,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildSearchChip(String label) {
     return ChoiceChip(
       label: Text(label),
-      onSelected: (_) => _searchController.text = label,
+      onSelected: (_) => _searchCtrl.text = label,
       selected: false,
       backgroundColor: Colors.grey[200],
       labelStyle: const TextStyle(color: Colors.black54),

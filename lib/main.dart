@@ -1,56 +1,84 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import 'config/firebase_options.dart';
+import 'providers/auth_provider.dart';
+import 'providers/post_provider.dart';
+import 'providers/user_provider.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/auth/register_screen.dart'; // Thêm import
-import 'screens/auth/forgot_password_screen.dart'; // Thêm import
+import 'screens/auth/register_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+  
+  // Initialize Firebase with options
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+  
   runApp(const SocialMockApp());
 }
 
 class SocialMockApp extends StatelessWidget {
   const SocialMockApp({super.key});
 
-  // Hàm kiểm tra trạng thái đăng nhập
-  Future<bool> _isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('isLoggedIn') ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Mạng xã hội',
-      theme: ThemeData(
-        primarySwatch: Colors.blueGrey,
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(elevation: 0.5),
-      ),
-      // Sử dụng FutureBuilder để kiểm tra login
-      home: FutureBuilder<bool>(
-        future: _isLoggedIn(),
-        builder: (context, snapshot) {  
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          // Nếu đã login, vào Home; chưa thì vào Login
-          if (snapshot.hasData && snapshot.data == true) {
-            return const HomeScreen();
-          } else {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PostProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+      ],
+      child: MaterialApp(
+        title: 'Mạng xã hội',
+        theme: ThemeData(
+          primarySwatch: Colors.blueGrey,
+          scaffoldBackgroundColor: Colors.white,
+          appBarTheme: const AppBarTheme(elevation: 0.5),
+        ),
+        home: Consumer<AuthProvider>(
+          builder: (context, authProvider, _) {
+            // Show loading while checking auth state
+            if (authProvider.firebaseUser == null && authProvider.isLoading) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            
+            // If authenticated, go to Home
+            if (authProvider.isAuthenticated) {
+              // Initialize post stream when logged in
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                context.read<PostProvider>().initializePostStream();
+                if (authProvider.firebaseUser != null) {
+                  context.read<UserProvider>().loadUser(authProvider.firebaseUser!.uid);
+                }
+              });
+              return const HomeScreen();
+            }
+            
+            // Otherwise, show Login
             return const LoginScreen();
-          }
+          },
+        ),
+        routes: {
+          LoginScreen.routeName: (context) => const LoginScreen(),
+          RegisterScreen.routeName: (context) => const RegisterScreen(),
+          ForgotPasswordScreen.routeName: (context) => const ForgotPasswordScreen(),
         },
+        debugShowCheckedModeBanner: false,
       ),
-      // Thêm routes để xử lý named navigation (tránh lỗi)
-      routes: {
-        LoginScreen.routeName: (context) => const LoginScreen(),
-        RegisterScreen.routeName: (context) => const RegisterScreen(),
-        ForgotPasswordScreen.routeName: (context) => const ForgotPasswordScreen(),
-      },
-      debugShowCheckedModeBanner: false,
     );
   }
 }

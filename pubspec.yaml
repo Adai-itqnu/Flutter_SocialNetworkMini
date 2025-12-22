@@ -31,6 +31,21 @@ dependencies:
   flutter:
     sdk: flutter
     
+  # Firebase
+  firebase_core: ^3.8.1
+  firebase_auth: ^5.3.4
+  cloud_firestore: ^5.5.2
+  
+  # State Management
+  provider: ^6.1.2
+  
+  # HTTP Client for ImgBB API
+  http: ^1.2.0
+  dio: ^5.4.0
+  
+  # Environment Variables
+  flutter_dotenv: ^5.1.0
+    
   shared_preferences: ^2.0.15
   image_picker: ^0.8.7+5
   path_provider: ^2.0.14
@@ -62,9 +77,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

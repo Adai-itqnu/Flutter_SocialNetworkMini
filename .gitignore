@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment variables - DO NOT COMMIT
+.env
+.env.local
+.env.*.local
+
+# Firebase (config is in firebase_options.dart - safe to commit)
+# But ensure no sensitive keys are hardcoded
+
+# SOA workspace (old project file)
+*.code-workspace
