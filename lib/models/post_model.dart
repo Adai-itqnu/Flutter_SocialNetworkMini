@@ -7,6 +7,10 @@ class PostModel {
   final List<String> imageUrls;
   final int likesCount;
   final int commentsCount;
+  final List<String> likedBy; // List of user IDs who liked this post
+  final String? sharedPostId; // ID of the original post if this is a share
+  final String?
+  sharedUserId; // ID of the original post author if this is a share
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,6 +21,9 @@ class PostModel {
     required this.imageUrls,
     this.likesCount = 0,
     this.commentsCount = 0,
+    this.likedBy = const [],
+    this.sharedPostId,
+    this.sharedUserId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -30,6 +37,9 @@ class PostModel {
       'imageUrls': imageUrls,
       'likesCount': likesCount,
       'commentsCount': commentsCount,
+      'likedBy': likedBy,
+      'sharedPostId': sharedPostId,
+      'sharedUserId': sharedUserId,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -45,6 +55,9 @@ class PostModel {
       imageUrls: List<String>.from(data['imageUrls'] ?? []),
       likesCount: data['likesCount'] ?? 0,
       commentsCount: data['commentsCount'] ?? 0,
+      likedBy: List<String>.from(data['likedBy'] ?? []),
+      sharedPostId: data['sharedPostId'],
+      sharedUserId: data['sharedUserId'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
     );
@@ -59,6 +72,9 @@ class PostModel {
       imageUrls: List<String>.from(json['imageUrls'] ?? []),
       likesCount: json['likesCount'] ?? 0,
       commentsCount: json['commentsCount'] ?? 0,
+      likedBy: List<String>.from(json['likedBy'] ?? []),
+      sharedPostId: json['sharedPostId'],
+      sharedUserId: json['sharedUserId'],
       createdAt: json['createdAt'] is Timestamp
           ? (json['createdAt'] as Timestamp).toDate()
           : DateTime.parse(json['createdAt']),
@@ -76,6 +92,9 @@ class PostModel {
     List<String>? imageUrls,
     int? likesCount,
     int? commentsCount,
+    List<String>? likedBy,
+    String? sharedPostId,
+    String? sharedUserId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -86,6 +105,9 @@ class PostModel {
       imageUrls: imageUrls ?? this.imageUrls,
       likesCount: likesCount ?? this.likesCount,
       commentsCount: commentsCount ?? this.commentsCount,
+      likedBy: likedBy ?? this.likedBy,
+      sharedPostId: sharedPostId ?? this.sharedPostId,
+      sharedUserId: sharedUserId ?? this.sharedUserId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

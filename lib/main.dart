@@ -11,21 +11,20 @@ import 'screens/home/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Load environment variables
   await dotenv.load(fileName: ".env");
-  
+
   // Initialize Firebase with options
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
-  
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize common locales
+  timeago.setLocaleMessages('vi', timeago.ViMessages());
+
   runApp(const SocialMockApp());
 }
 
@@ -55,19 +54,21 @@ class SocialMockApp extends StatelessWidget {
                 body: Center(child: CircularProgressIndicator()),
               );
             }
-            
+
             // If authenticated, go to Home
             if (authProvider.isAuthenticated) {
               // Initialize post stream when logged in
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 context.read<PostProvider>().initializePostStream();
                 if (authProvider.firebaseUser != null) {
-                  context.read<UserProvider>().loadUser(authProvider.firebaseUser!.uid);
+                  context.read<UserProvider>().loadUser(
+                    authProvider.firebaseUser!.uid,
+                  );
                 }
               });
               return const HomeScreen();
             }
-            
+
             // Otherwise, show Login
             return const LoginScreen();
           },
@@ -75,7 +76,8 @@ class SocialMockApp extends StatelessWidget {
         routes: {
           LoginScreen.routeName: (context) => const LoginScreen(),
           RegisterScreen.routeName: (context) => const RegisterScreen(),
-          ForgotPasswordScreen.routeName: (context) => const ForgotPasswordScreen(),
+          ForgotPasswordScreen.routeName: (context) =>
+              const ForgotPasswordScreen(),
         },
         debugShowCheckedModeBanner: false,
       ),

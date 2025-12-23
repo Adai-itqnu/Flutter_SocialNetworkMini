@@ -5,6 +5,9 @@ class CommentModel {
   final String postId;
   final String userId;
   final String text;
+  final int likesCount;
+  final List<String> likedBy; // List of user IDs who liked this comment
+  final String? parentCommentId; // ID of parent comment if this is a reply
   final DateTime createdAt;
 
   CommentModel({
@@ -12,6 +15,9 @@ class CommentModel {
     required this.postId,
     required this.userId,
     required this.text,
+    this.likesCount = 0,
+    this.likedBy = const [],
+    this.parentCommentId,
     required this.createdAt,
   });
 
@@ -22,6 +28,9 @@ class CommentModel {
       'postId': postId,
       'userId': userId,
       'text': text,
+      'likesCount': likesCount,
+      'likedBy': likedBy,
+      'parentCommentId': parentCommentId,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -34,6 +43,9 @@ class CommentModel {
       postId: data['postId'] ?? '',
       userId: data['userId'] ?? '',
       text: data['text'] ?? '',
+      likesCount: data['likesCount'] ?? 0,
+      likedBy: List<String>.from(data['likedBy'] ?? []),
+      parentCommentId: data['parentCommentId'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
   }
@@ -45,6 +57,9 @@ class CommentModel {
       postId: json['postId'] ?? '',
       userId: json['userId'] ?? '',
       text: json['text'] ?? '',
+      likesCount: json['likesCount'] ?? 0,
+      likedBy: List<String>.from(json['likedBy'] ?? []),
+      parentCommentId: json['parentCommentId'],
       createdAt: json['createdAt'] is Timestamp
           ? (json['createdAt'] as Timestamp).toDate()
           : DateTime.parse(json['createdAt']),

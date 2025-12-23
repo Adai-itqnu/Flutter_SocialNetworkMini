@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import '../../models/comment_model.dart';
+import '../../models/user_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/firestore_service.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 
 class CommentScreen extends StatefulWidget {
-  final String postAuthor;
-  final String postCaption;
-
+  final String postId, postAuthor, postCaption;
   const CommentScreen({
     super.key,
+    required this.postId,
     required this.postAuthor,
     required this.postCaption,
   });
@@ -15,206 +21,273 @@ class CommentScreen extends StatefulWidget {
 }
 
 class _CommentScreenState extends State<CommentScreen> {
-  final TextEditingController _commentController = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
+  final _service = FirestoreService();
+  String? _replyId, _replyName;
 
-  // Mock comments - will load from Firebase
-  final List<Map<String, String>> _comments = [];
-
-  void _addComment() {
-    if (_commentController.text.trim().isNotEmpty) {
-      setState(() {
-        _comments.insert(0, {
-          'author': 'You',
-          'text': _commentController.text.trim(),
-          'time': 'Vừa xong',
-        });
-      });
-      _commentController.clear();
-      _focusNode.unfocus();
-    }
-  }
-
-  @override
-  void dispose() {
-    _commentController.dispose();
-    _focusNode.dispose();
-    super.dispose();
+  void _submit() async {
+    final user = context.read<AuthProvider>().userModel;
+    if (_controller.text.trim().isEmpty || user == null) return;
+    await _service.addComment(
+      postId: widget.postId,
+      userId: user.uid,
+      text: _controller.text.trim(),
+      parentCommentId: _replyId,
+    );
+    _controller.clear();
+    _focus.unfocus();
+    setState(() {
+      _replyId = null;
+      _replyName = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final horizontalPadding = width > 600 ? 24.0 : 12.0;
-
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
+        title: const Text('Bình luận', style: TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text(
-          'Bình luận',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        centerTitle: false,
+        elevation: 0.5,
       ),
-      body: CustomScrollView(
-        slivers: [
-          // Header with post info
-          SliverToBoxAdapter(
-            child: Container(
-              padding: EdgeInsets.all(horizontalPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 16,
-                        child: Icon(Icons.person, size: 16),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.postAuthor,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              widget.postCaption,
-                              style: const TextStyle(fontSize: 14, color: Colors.black54),
-                            ),
-                          ],
+      body: Column(
+        children: [
+          ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.person)),
+            title: Text(
+              widget.postAuthor,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(widget.postCaption),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: StreamBuilder<List<CommentModel>>(
+              stream: _service.getComments(widget.postId),
+              builder: (context, snap) {
+                final list = (snap.data ?? [])
+                    .where((c) => c.parentCommentId == null)
+                    .toList();
+                return list.isEmpty
+                    ? const Center(child: Text('Chưa có bình luận'))
+                    : ListView.builder(
+                        itemCount: list.length,
+                        itemBuilder: (context, i) => _CommentItem(
+                          comment: list[i],
+                          postId: widget.postId,
+                          onReply: (id, name) {
+                            setState(() {
+                              _replyId = id;
+                              _replyName = name;
+                            });
+                            _focus.requestFocus();
+                          },
                         ),
-                      ),
-                    ],
+                      );
+              },
+            ),
+          ),
+          if (_replyName != null)
+            Container(
+              color: Colors.blue.withOpacity(0.1),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text(
+                    'Trả lời @$_replyName',
+                    style: const TextStyle(fontSize: 12),
                   ),
-                  const SizedBox(height: 16),
-                  const Divider(height: 1),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16),
+                    onPressed: () => setState(() => _replyName = null),
+                  ),
                 ],
               ),
             ),
-          ),
-          // List comments
-          if (_comments.isEmpty)
-            SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.comment_outlined, size: 64, color: Colors.grey[400]),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Chưa có bình luận',
-                      style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Hãy là người đầu tiên bình luận!',
-                      style: TextStyle(color: Colors.grey[500]),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  childCount: _comments.length,
-                  (context, index) {
-                    final comment = _comments[index];
-                    return _buildCommentItem(comment);
-                  },
-                ),
-              ),
-            ),
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
-        ],
-      ),
-      // Input comment
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.fromLTRB(horizontalPadding, horizontalPadding, horizontalPadding, 30),
-        height: 100,
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _commentController,
-                focusNode: _focusNode,
-                decoration: const InputDecoration(
-                  hintText: 'Viết bình luận...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(24)),
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                ),
-                onSubmitted: (_) => _addComment(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            FloatingActionButton(
-              onPressed: _addComment,
-              mini: true,
-              backgroundColor: Colors.blue,
-              child: const Icon(Icons.send, color: Colors.white, size: 18),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCommentItem(Map<String, String> comment) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const CircleAvatar(
-            radius: 16,
-            child: Icon(Icons.person, size: 16),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Text(
-                      comment['author']!,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focus,
+                    decoration: InputDecoration(
+                      hintText: 'Viết bình luận...',
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      comment['time']!,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  comment['text']!,
-                  style: const TextStyle(fontSize: 14),
+                IconButton(
+                  onPressed: _submit,
+                  icon: const Icon(Icons.send, color: Colors.blue),
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CommentItem extends StatefulWidget {
+  final CommentModel comment;
+  final String postId;
+  final Function(String, String) onReply;
+  const _CommentItem({
+    required this.comment,
+    required this.postId,
+    required this.onReply,
+  });
+
+  @override
+  State<_CommentItem> createState() => _CommentItemState();
+}
+
+class _CommentItemState extends State<_CommentItem> {
+  bool _liked = false, _show = false;
+  int _count = 0;
+  UserModel? _author;
+
+  @override
+  void initState() {
+    super.initState();
+    _count = widget.comment.likesCount;
+    _initialLoad();
+  }
+
+  void _initialLoad() async {
+    final user = context.read<AuthProvider>().userModel;
+    _author = await FirestoreService().getUser(widget.comment.userId);
+    if (user != null) _liked = widget.comment.likedBy.contains(user.uid);
+    if (mounted) setState(() {});
+  }
+
+  void _toggleLike() async {
+    final uid = context.read<AuthProvider>().userModel?.uid;
+    if (uid == null) return;
+    setState(() {
+      _liked = !_liked;
+      _count += _liked ? 1 : -1;
+    });
+    _liked
+        ? await FirestoreService().likeComment(widget.comment.commentId, uid)
+        : await FirestoreService().unlikeComment(widget.comment.commentId, uid);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ListTile(
+          leading: CircleAvatar(
+            backgroundImage: _author?.photoURL != null
+                ? CachedNetworkImageProvider(_author!.photoURL!)
+                : null,
+          ),
+          title: Row(
+            children: [
+              Text(
+                _author?.displayName ?? '...',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                timeago.format(widget.comment.createdAt, locale: 'vi'),
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
+              ),
+            ],
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.comment.text),
+              Row(
+                children: [
+                  InkWell(
+                    onTap: _toggleLike,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _liked ? Icons.favorite : Icons.favorite_border,
+                          size: 14,
+                          color: _liked ? Colors.red : Colors.grey,
+                        ),
+                        if (_count > 0)
+                          Text(
+                            ' $_count',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  InkWell(
+                    onTap: () => widget.onReply(
+                      widget.comment.commentId,
+                      _author?.displayName ?? '',
+                    ),
+                    child: const Text(
+                      'Trả lời',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        StreamBuilder<List<CommentModel>>(
+          stream: FirestoreService().getReplies(widget.comment.commentId),
+          builder: (context, snap) {
+            final reps = snap.data ?? [];
+            if (reps.isEmpty) return const SizedBox();
+            return Padding(
+              padding: const EdgeInsets.only(left: 48),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!_show)
+                    TextButton(
+                      onPressed: () => setState(() => _show = true),
+                      child: Text(
+                        'Xem ${reps.length} trả lời',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  if (_show) ...[
+                    ...reps.map(
+                      (r) => _CommentItem(
+                        comment: r,
+                        postId: widget.postId,
+                        onReply: widget.onReply,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => setState(() => _show = false),
+                      child: const Text('Ẩn', style: TextStyle(fontSize: 11)),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

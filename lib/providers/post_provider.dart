@@ -21,23 +21,37 @@ class PostProvider with ChangeNotifier {
   void initializePostStream() {
     _firestoreService.getPosts().listen(
       (List<PostModel> loadedPosts) async {
+        // Cập nhật danh sách bài viết ngay lập tức để người dùng thấy nội dung trước
         _posts = loadedPosts;
-        
-        // Load author data for each post
-        for (var post in _posts) {
-          if (!_postAuthors.containsKey(post.userId)) {
-            try {
-              UserModel? author = await _firestoreService.getUser(post.userId);
-              if (author != null) {
-                _postAuthors[post.userId] = author;
-              }
-            } catch (e) {
-              print('Error loading author data: $e');
+        notifyListeners();
+
+        // Tìm các userId chưa có dữ liệu author trong cache
+        final missingUserIds = _posts
+            .map((p) => p.userId)
+            .where((uid) => !_postAuthors.containsKey(uid))
+            .toSet(); // Dùng Set để tránh lấy trùng
+
+        if (missingUserIds.isEmpty) return;
+
+        // Lấy thông tin các author còn thiếu song song (Future.wait) để tăng tốc độ
+        try {
+          final results = await Future.wait(
+            missingUserIds.map((uid) => _firestoreService.getUser(uid)),
+          );
+
+          for (int i = 0; i < missingUserIds.length; i++) {
+            final author = results[i];
+            final uid = missingUserIds.elementAt(i);
+            if (author != null) {
+              _postAuthors[uid] = author;
             }
           }
+
+          // Thông báo lại sau khi đã có đầy đủ info tác giả
+          notifyListeners();
+        } catch (e) {
+          print('Lỗi tải dữ liệu người dùng: $e');
         }
-        
-        notifyListeners();
       },
       onError: (error) {
         _error = error.toString();

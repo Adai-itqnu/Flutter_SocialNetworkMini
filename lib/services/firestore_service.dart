@@ -11,7 +11,10 @@ class FirestoreService {
   // Get user by ID
   Future<UserModel?> getUser(String uid) async {
     try {
-      DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+      DocumentSnapshot doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get();
       if (doc.exists) {
         return UserModel.fromFirestore(doc);
       }
@@ -71,8 +74,10 @@ class FirestoreService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => PostModel.fromFirestore(doc)).toList();
-    });
+          return snapshot.docs
+              .map((doc) => PostModel.fromFirestore(doc))
+              .toList();
+        });
   }
 
   // Get user's posts
@@ -80,11 +85,15 @@ class FirestoreService {
     return _firestore
         .collection('posts')
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => PostModel.fromFirestore(doc)).toList();
-    });
+          final posts = snapshot.docs
+              .map((doc) => PostModel.fromFirestore(doc))
+              .toList();
+          // Sort client-side to avoid requiring composite indexes
+          posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return posts;
+        });
   }
 
   // Delete post
@@ -106,23 +115,10 @@ class FirestoreService {
   // Like a post
   Future<void> likePost(String postId, String userId) async {
     try {
-      final likeRef = _firestore.collection('likes').doc('${postId}_$userId');
+      final postRef = _firestore.collection('posts').doc(postId);
 
-      // Check if already liked
-      final likeDoc = await likeRef.get();
-      if (likeDoc.exists) {
-        return; // Already liked
-      }
-
-      // Create like document
-      await likeRef.set({
-        'postId': postId,
-        'userId': userId,
-        'createdAt': Timestamp.now(),
-      });
-
-      // Increment post's like count
-      await _firestore.collection('posts').doc(postId).update({
+      await postRef.update({
+        'likedBy': FieldValue.arrayUnion([userId]),
         'likesCount': FieldValue.increment(1),
       });
     } catch (e) {
@@ -133,19 +129,10 @@ class FirestoreService {
   // Unlike a post
   Future<void> unlikePost(String postId, String userId) async {
     try {
-      final likeRef = _firestore.collection('likes').doc('${postId}_$userId');
+      final postRef = _firestore.collection('posts').doc(postId);
 
-      // Check if liked
-      final likeDoc = await likeRef.get();
-      if (!likeDoc.exists) {
-        return; // Not liked
-      }
-
-      // Delete like document
-      await likeRef.delete();
-
-      // Decrement post's like count
-      await _firestore.collection('posts').doc(postId).update({
+      await postRef.update({
+        'likedBy': FieldValue.arrayRemove([userId]),
         'likesCount': FieldValue.increment(-1),
       });
     } catch (e) {
@@ -156,9 +143,12 @@ class FirestoreService {
   // Check if user liked a post
   Future<bool> hasLikedPost(String postId, String userId) async {
     try {
-      final likeDoc =
-          await _firestore.collection('likes').doc('${postId}_$userId').get();
-      return likeDoc.exists;
+      final postDoc = await _firestore.collection('posts').doc(postId).get();
+      if (!postDoc.exists) return false;
+
+      final data = postDoc.data() as Map<String, dynamic>;
+      final likedBy = List<String>.from(data['likedBy'] ?? []);
+      return likedBy.contains(userId);
     } catch (e) {
       return false;
     }
@@ -171,6 +161,7 @@ class FirestoreService {
     required String postId,
     required String userId,
     required String text,
+    String? parentCommentId, // For replies
   }) async {
     try {
       final commentRef = _firestore.collection('comments').doc();
@@ -180,6 +171,7 @@ class FirestoreService {
         postId: postId,
         userId: userId,
         text: text,
+        parentCommentId: parentCommentId,
         createdAt: DateTime.now(),
       );
 
@@ -201,13 +193,15 @@ class FirestoreService {
     return _firestore
         .collection('comments')
         .where('postId', isEqualTo: postId)
-        .orderBy('createdAt', descending: false)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => CommentModel.fromFirestore(doc))
-          .toList();
-    });
+          final comments = snapshot.docs
+              .map((doc) => CommentModel.fromFirestore(doc))
+              .toList();
+          // Sort client-side to avoid requiring composite indexes
+          comments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          return comments;
+        });
   }
 
   // Delete comment
@@ -229,8 +223,9 @@ class FirestoreService {
   // Follow a user
   Future<void> followUser(String followerId, String followingId) async {
     try {
-      final followRef =
-          _firestore.collection('followers').doc('${followerId}_$followingId');
+      final followRef = _firestore
+          .collection('followers')
+          .doc('${followerId}_$followingId');
 
       // Check if already following
       final followDoc = await followRef.get();
@@ -262,8 +257,9 @@ class FirestoreService {
   // Unfollow a user
   Future<void> unfollowUser(String followerId, String followingId) async {
     try {
-      final followRef =
-          _firestore.collection('followers').doc('${followerId}_$followingId');
+      final followRef = _firestore
+          .collection('followers')
+          .doc('${followerId}_$followingId');
 
       // Check if following
       final followDoc = await followRef.get();
@@ -298,6 +294,122 @@ class FirestoreService {
       return followDoc.exists;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ==================== COMMENT LIKE OPERATIONS ====================
+
+  // Like a comment
+  Future<void> likeComment(String commentId, String userId) async {
+    try {
+      final commentRef = _firestore.collection('comments').doc(commentId);
+
+      await commentRef.update({
+        'likedBy': FieldValue.arrayUnion([userId]),
+        'likesCount': FieldValue.increment(1),
+      });
+    } catch (e) {
+      throw Exception('Lỗi khi thích comment: $e');
+    }
+  }
+
+  // Unlike a comment
+  Future<void> unlikeComment(String commentId, String userId) async {
+    try {
+      final commentRef = _firestore.collection('comments').doc(commentId);
+
+      await commentRef.update({
+        'likedBy': FieldValue.arrayRemove([userId]),
+        'likesCount': FieldValue.increment(-1),
+      });
+    } catch (e) {
+      throw Exception('Lỗi khi bỏ thích comment: $e');
+    }
+  }
+
+  // Check if user liked a comment
+  Future<bool> hasLikedComment(String commentId, String userId) async {
+    try {
+      final commentDoc = await _firestore
+          .collection('comments')
+          .doc(commentId)
+          .get();
+      if (!commentDoc.exists) return false;
+
+      final data = commentDoc.data() as Map<String, dynamic>;
+      final likedBy = List<String>.from(data['likedBy'] ?? []);
+      return likedBy.contains(userId);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Get replies for a comment
+  Stream<List<CommentModel>> getReplies(String parentCommentId) {
+    return _firestore
+        .collection('comments')
+        .where('parentCommentId', isEqualTo: parentCommentId)
+        .snapshots()
+        .map((snapshot) {
+          final replies = snapshot.docs
+              .map((doc) => CommentModel.fromFirestore(doc))
+              .toList();
+          // Sort client-side to avoid requiring composite indexes
+          replies.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          return replies;
+        });
+  }
+
+  // ==================== SHARE POST OPERATIONS ====================
+
+  // Share a post
+  Future<String> sharePost({
+    required String userId,
+    required String caption,
+    required String sharedPostId,
+    required String sharedUserId,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final postRef = _firestore.collection('posts').doc();
+
+      PostModel newPost = PostModel(
+        postId: postRef.id,
+        userId: userId,
+        caption: caption,
+        imageUrls: [], // Shared posts don't have their own images
+        sharedPostId: sharedPostId,
+        sharedUserId: sharedUserId,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      await postRef.set(newPost.toJson());
+
+      // Increment user's post count
+      await _firestore.collection('users').doc(userId).update({
+        'postsCount': FieldValue.increment(1),
+      });
+
+      return postRef.id;
+    } catch (e) {
+      throw Exception('Lỗi khi chia sẻ bài viết: $e');
+    }
+  }
+
+  // Get shared post details
+  Future<PostModel?> getPost(String postId) async {
+    try {
+      DocumentSnapshot doc = await _firestore
+          .collection('posts')
+          .doc(postId)
+          .get();
+      if (doc.exists) {
+        return PostModel.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Lỗi khi lấy bài viết: $e');
     }
   }
 }

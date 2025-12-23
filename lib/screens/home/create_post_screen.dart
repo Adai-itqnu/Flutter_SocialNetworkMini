@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/post_provider.dart';
@@ -22,7 +23,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   XFile? _selectedImage;
   bool _isUploading = false;
 
-  bool get _canPost => _captionController.text.trim().isNotEmpty || _selectedImage != null;
+  bool get _canPost =>
+      _captionController.text.trim().isNotEmpty || _selectedImage != null;
 
   @override
   void initState() {
@@ -73,9 +75,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       // Upload image to ImgBB if selected
       if (_selectedImage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đang upload ảnh...')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Đang upload ảnh...')));
 
         final imageUrl = await ImgBBService.uploadImage(_selectedImage!);
         imageUrls.add(imageUrl);
@@ -92,9 +94,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         setState(() => _isUploading = false);
 
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đăng bài thành công!')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Đăng bài thành công!')));
           Navigator.of(context).pop();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -109,10 +111,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) {
         setState(() => _isUploading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -162,7 +161,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   CircleAvatar(
                     radius: 22,
                     backgroundImage: userModel?.photoURL != null
-                        ? NetworkImage(userModel!.photoURL!)
+                        ? CachedNetworkImageProvider(userModel!.photoURL!)
                         : null,
                     child: userModel?.photoURL == null
                         ? const Icon(Icons.person)
@@ -233,7 +232,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           backgroundColor: Colors.black54,
                           child: IconButton(
                             icon: const Icon(Icons.close, color: Colors.white),
-                            onPressed: () => setState(() => _selectedImage = null),
+                            onPressed: () =>
+                                setState(() => _selectedImage = null),
                           ),
                         ),
                       ),
@@ -243,7 +243,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
             // Gallery button
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16).copyWith(bottom: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+              ).copyWith(bottom: 16),
               child: Row(
                 children: [
                   OutlinedButton.icon(
@@ -251,7 +253,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     icon: const Icon(Icons.image_outlined),
                     label: const Text('Thư viện'),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
