@@ -90,6 +90,39 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Sign in with Google
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _authService.signInWithGoogle();
+      
+      if (result == null) {
+        // User cancelled
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      // Update firebase user immediately to trigger navigation
+      _firebaseUser = result.user;
+      if (_firebaseUser != null) {
+        await _loadUserData(_firebaseUser!.uid);
+      }
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
     await _authService.signOut();

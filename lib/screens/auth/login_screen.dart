@@ -122,6 +122,41 @@ class _LoginScreenState extends State<LoginScreen> {
                         )
                       : const Text('Đăng nhập'),
                 ),
+                const SizedBox(height: 16),
+                const Row(
+                  children: [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'hoặc',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                    Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: authProvider.isLoading
+                      ? null
+                      : () async {
+                          final success = await authProvider.signInWithGoogle();
+                          if (mounted && !success && authProvider.error != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(authProvider.error!),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                  icon: const Icon(Icons.g_mobiledata, size: 24, color: Colors.red),
+                  label: const Text('Đăng nhập với Google'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 OutlinedButton(
                   onPressed: authProvider.isLoading
