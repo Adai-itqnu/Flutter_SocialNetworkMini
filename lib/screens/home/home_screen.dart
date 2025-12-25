@@ -7,7 +7,7 @@ import '../../widgets/post_card.dart';
 import 'create_post_screen.dart';
 import 'SearchScreen.dart';
 import '../notification/notifications_screen.dart';
-import '../notification/friend_requests_screen.dart';
+import '../notification/followers_screen.dart';
 import '../profile/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -30,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _tabs = [
       _buildHomeContent(),
       const SearchScreen(),
-      const FriendRequestsScreen(),
+      const FollowersScreen(),
       const ProfileScreen(),
     ];
   }
