@@ -7,6 +7,8 @@ import 'config/firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/post_provider.dart';
 import 'providers/user_provider.dart';
+import 'providers/notification_provider.dart';
+import 'providers/follow_provider.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -38,6 +40,8 @@ class SocialMockApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => PostProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => FollowProvider()),
       ],
       child: MaterialApp(
         title: 'Mạng xã hội',
@@ -57,13 +61,13 @@ class SocialMockApp extends StatelessWidget {
 
             // If authenticated, go to Home
             if (authProvider.isAuthenticated) {
-              // Initialize post stream when logged in
+              // Initialize streams when logged in
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 context.read<PostProvider>().initializePostStream();
                 if (authProvider.firebaseUser != null) {
-                  context.read<UserProvider>().loadUser(
-                    authProvider.firebaseUser!.uid,
-                  );
+                  final uid = authProvider.firebaseUser!.uid;
+                  context.read<UserProvider>().loadUser(uid);
+                  context.read<NotificationProvider>().initializeNotificationStream(uid);
                 }
               });
               return const HomeScreen();

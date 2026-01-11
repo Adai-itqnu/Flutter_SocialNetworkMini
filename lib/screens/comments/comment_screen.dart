@@ -3,17 +3,19 @@ import '../../models/comment_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../services/notification_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 
 class CommentScreen extends StatefulWidget {
-  final String postId, postAuthor, postCaption;
+  final String postId, postAuthor, postCaption, postOwnerId;
   const CommentScreen({
     super.key,
     required this.postId,
     required this.postAuthor,
     required this.postCaption,
+    required this.postOwnerId,
   });
 
   @override
@@ -24,17 +26,32 @@ class _CommentScreenState extends State<CommentScreen> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   final _service = FirestoreService();
+  final _notificationService = NotificationService();
   String? _replyId, _replyName;
 
   void _submit() async {
     final user = context.read<AuthProvider>().userModel;
     if (_controller.text.trim().isEmpty || user == null) return;
+    
+    final commentText = _controller.text.trim();
+    
     await _service.addComment(
       postId: widget.postId,
       userId: user.uid,
-      text: _controller.text.trim(),
+      text: commentText,
       parentCommentId: _replyId,
     );
+    
+    // Create notification for post owner (not for self)
+    if (widget.postOwnerId != user.uid) {
+      await _notificationService.createCommentNotification(
+        fromUserId: user.uid,
+        postOwnerId: widget.postOwnerId,
+        postId: widget.postId,
+        commentText: commentText,
+      );
+    }
+    
     _controller.clear();
     _focus.unfocus();
     setState(() {

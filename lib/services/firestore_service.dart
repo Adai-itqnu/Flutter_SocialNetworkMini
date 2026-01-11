@@ -33,6 +33,21 @@ class FirestoreService {
     }
   }
 
+  // Get all users (for suggestions)
+  Future<List<UserModel>> getAllUsers({int limit = 50}) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .limit(limit)
+          .get();
+      return snapshot.docs
+          .map((doc) => UserModel.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      throw Exception('Lỗi khi lấy danh sách users: $e');
+    }
+  }
+
   // ==================== POST OPERATIONS ====================
 
   // Create new post
@@ -40,6 +55,7 @@ class FirestoreService {
     required String userId,
     required String caption,
     required List<String> imageUrls,
+    PostVisibility visibility = PostVisibility.public,
   }) async {
     try {
       final now = DateTime.now();
@@ -50,6 +66,7 @@ class FirestoreService {
         userId: userId,
         caption: caption,
         imageUrls: imageUrls,
+        visibility: visibility,
         createdAt: now,
         updatedAt: now,
       );
@@ -297,6 +314,38 @@ class FirestoreService {
     }
   }
 
+  // Get list of followers for a user
+  Future<List<String>> getFollowers(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('followers')
+          .where('followingId', isEqualTo: userId)
+          .get();
+      
+      return snapshot.docs
+          .map((doc) => doc.data()['followerId'] as String)
+          .toList();
+    } catch (e) {
+      throw Exception('Lỗi khi lấy danh sách người theo dõi: $e');
+    }
+  }
+
+  // Get list of users that a user is following
+  Future<List<String>> getFollowing(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('followers')
+          .where('followerId', isEqualTo: userId)
+          .get();
+      
+      return snapshot.docs
+          .map((doc) => doc.data()['followingId'] as String)
+          .toList();
+    } catch (e) {
+      throw Exception('Lỗi khi lấy danh sách đang theo dõi: $e');
+    }
+  }
+
   // ==================== COMMENT LIKE OPERATIONS ====================
 
   // Like a comment
@@ -410,6 +459,121 @@ class FirestoreService {
       return null;
     } catch (e) {
       throw Exception('Lỗi khi lấy bài viết: $e');
+    }
+  }
+
+  // ==================== SAVED POSTS OPERATIONS ====================
+
+  // Save a post
+  Future<void> savePost(String userId, String postId) async {
+    try {
+      await _firestore
+          .collection('saved_posts')
+          .doc('${userId}_$postId')
+          .set({
+        'userId': userId,
+        'postId': postId,
+        'savedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      throw Exception('Lỗi khi lưu bài viết: $e');
+    }
+  }
+
+  // Unsave a post
+  Future<void> unsavePost(String userId, String postId) async {
+    try {
+      await _firestore
+          .collection('saved_posts')
+          .doc('${userId}_$postId')
+          .delete();
+    } catch (e) {
+      throw Exception('Lỗi khi bỏ lưu bài viết: $e');
+    }
+  }
+
+  // Check if user saved a post
+  Future<bool> hasSavedPost(String userId, String postId) async {
+    try {
+      final doc = await _firestore
+          .collection('saved_posts')
+          .doc('${userId}_$postId')
+          .get();
+      return doc.exists;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Get all saved posts for a user
+  Future<List<PostModel>> getSavedPosts(String userId) async {
+    try {
+      // Note: Removed orderBy to avoid requiring Firestore composite index
+      final savedDocs = await _firestore
+          .collection('saved_posts')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      // Sort by savedAt descending in code
+      final sortedDocs = savedDocs.docs.toList()
+        ..sort((a, b) {
+          final aTime = a.data()['savedAt'] as Timestamp?;
+          final bTime = b.data()['savedAt'] as Timestamp?;
+          if (aTime == null || bTime == null) return 0;
+          return bTime.compareTo(aTime); // descending
+        });
+
+      final posts = <PostModel>[];
+      for (final doc in sortedDocs) {
+        final postId = doc.data()['postId'] as String;
+        final post = await getPost(postId);
+        if (post != null) {
+          posts.add(post);
+        }
+      }
+      return posts;
+    } catch (e) {
+      throw Exception('Lỗi khi lấy bài viết đã lưu: $e');
+    }
+  }
+
+  // ==================== SEARCH OPERATIONS ====================
+
+  // Search users by displayName or username
+  Future<List<UserModel>> searchUsers(String query) async {
+    if (query.isEmpty) return [];
+    try {
+      final queryLower = query.toLowerCase();
+      final snapshot = await _firestore.collection('users').get();
+      
+      return snapshot.docs
+          .map((doc) => UserModel.fromFirestore(doc))
+          .where((user) =>
+              user.displayName.toLowerCase().contains(queryLower) ||
+              user.username.toLowerCase().contains(queryLower))
+          .toList();
+    } catch (e) {
+      throw Exception('Lỗi khi tìm kiếm: $e');
+    }
+  }
+
+  // Search posts by caption
+  Future<List<PostModel>> searchPosts(String query) async {
+    if (query.isEmpty) return [];
+    try {
+      final queryLower = query.toLowerCase();
+      final snapshot = await _firestore
+          .collection('posts')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
+      
+      return snapshot.docs
+          .map((doc) => PostModel.fromFirestore(doc))
+          .where((post) => post.caption.toLowerCase().contains(queryLower))
+          .toList();
+    } catch (e) {
+      throw Exception('Lỗi khi tìm kiếm bài viết: $e');
     }
   }
 }

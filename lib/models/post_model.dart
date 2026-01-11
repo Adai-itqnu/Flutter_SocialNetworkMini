@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum PostVisibility { public, followersOnly }
+
 class PostModel {
   final String postId;
   final String userId;
@@ -7,10 +9,10 @@ class PostModel {
   final List<String> imageUrls;
   final int likesCount;
   final int commentsCount;
-  final List<String> likedBy; // List of user IDs who liked this post
-  final String? sharedPostId; // ID of the original post if this is a share
-  final String?
-  sharedUserId; // ID of the original post author if this is a share
+  final List<String> likedBy;
+  final String? sharedPostId;
+  final String? sharedUserId;
+  final PostVisibility visibility; // NEW: public or followersOnly
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -24,11 +26,11 @@ class PostModel {
     this.likedBy = const [],
     this.sharedPostId,
     this.sharedUserId,
+    this.visibility = PostVisibility.public,
     required this.createdAt,
     required this.updatedAt,
   });
 
-  // Convert PostModel to JSON for Firestore
   Map<String, dynamic> toJson() {
     return {
       'postId': postId,
@@ -40,12 +42,12 @@ class PostModel {
       'likedBy': likedBy,
       'sharedPostId': sharedPostId,
       'sharedUserId': sharedUserId,
+      'visibility': visibility.name, // 'public' or 'followersOnly'
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
   }
 
-  // Create PostModel from Firestore document
   factory PostModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return PostModel(
@@ -58,12 +60,12 @@ class PostModel {
       likedBy: List<String>.from(data['likedBy'] ?? []),
       sharedPostId: data['sharedPostId'],
       sharedUserId: data['sharedUserId'],
+      visibility: _parseVisibility(data['visibility']),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
     );
   }
 
-  // Create PostModel from JSON
   factory PostModel.fromJson(Map<String, dynamic> json) {
     return PostModel(
       postId: json['postId'] ?? '',
@@ -75,6 +77,7 @@ class PostModel {
       likedBy: List<String>.from(json['likedBy'] ?? []),
       sharedPostId: json['sharedPostId'],
       sharedUserId: json['sharedUserId'],
+      visibility: _parseVisibility(json['visibility']),
       createdAt: json['createdAt'] is Timestamp
           ? (json['createdAt'] as Timestamp).toDate()
           : DateTime.parse(json['createdAt']),
@@ -84,7 +87,11 @@ class PostModel {
     );
   }
 
-  // Copy with method for updates
+  static PostVisibility _parseVisibility(String? value) {
+    if (value == 'followersOnly') return PostVisibility.followersOnly;
+    return PostVisibility.public; // default
+  }
+
   PostModel copyWith({
     String? postId,
     String? userId,
@@ -95,6 +102,7 @@ class PostModel {
     List<String>? likedBy,
     String? sharedPostId,
     String? sharedUserId,
+    PostVisibility? visibility,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -108,6 +116,7 @@ class PostModel {
       likedBy: likedBy ?? this.likedBy,
       sharedPostId: sharedPostId ?? this.sharedPostId,
       sharedUserId: sharedUserId ?? this.sharedUserId,
+      visibility: visibility ?? this.visibility,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

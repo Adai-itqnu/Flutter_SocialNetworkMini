@@ -10,6 +10,7 @@ class UserModel {
   final String? pronouns;
   final String? tagline;
   final String? link;
+  final String? gender;
   final int followersCount;
   final int followingCount;
   final int postsCount;
@@ -25,6 +26,7 @@ class UserModel {
     this.pronouns,
     this.tagline,
     this.link,
+    this.gender,
     this.followersCount = 0,
     this.followingCount = 0,
     this.postsCount = 0,
@@ -43,6 +45,7 @@ class UserModel {
       'pronouns': pronouns,
       'tagline': tagline,
       'link': link,
+      'gender': gender,
       'followersCount': followersCount,
       'followingCount': followingCount,
       'postsCount': postsCount,
@@ -63,6 +66,7 @@ class UserModel {
       pronouns: data['pronouns'],
       tagline: data['tagline'],
       link: data['link'],
+      gender: data['gender'],
       followersCount: data['followersCount'] ?? 0,
       followingCount: data['followingCount'] ?? 0,
       postsCount: data['postsCount'] ?? 0,
@@ -82,6 +86,7 @@ class UserModel {
       pronouns: json['pronouns'],
       tagline: json['tagline'],
       link: json['link'],
+      gender: json['gender'],
       followersCount: json['followersCount'] ?? 0,
       followingCount: json['followingCount'] ?? 0,
       postsCount: json['postsCount'] ?? 0,
@@ -102,6 +107,7 @@ class UserModel {
     String? pronouns,
     String? tagline,
     String? link,
+    String? gender,
     int? followersCount,
     int? followingCount,
     int? postsCount,
@@ -117,6 +123,7 @@ class UserModel {
       pronouns: pronouns ?? this.pronouns,
       tagline: tagline ?? this.tagline,
       link: link ?? this.link,
+      gender: gender ?? this.gender,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
       postsCount: postsCount ?? this.postsCount,

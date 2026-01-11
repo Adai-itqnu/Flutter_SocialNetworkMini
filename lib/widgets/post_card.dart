@@ -1,12 +1,20 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/post_model.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../services/firestore_service.dart';
+import '../services/notification_service.dart';
 import '../screens/comments/comment_screen.dart';
+import '../screens/profile/user_profile_screen.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
+
+// Import extracted widgets
+import 'post_card/post_header.dart';
+import 'post_card/post_interaction_bar.dart';
+import 'post_card/post_image_carousel.dart';
 
 class PostCard extends StatefulWidget {
   final PostModel post;
@@ -21,10 +29,16 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   final FirestoreService _firestoreService = FirestoreService();
+  final NotificationService _notificationService = NotificationService();
   bool _isLiked = false;
+  bool _isSaved = false; // NEW: Saved state
   int _likesCount = 0;
   late AnimationController _likeAnimationController;
   late Animation<double> _likeAnimation;
+
+  // Image carousel
+  int _currentImageIndex = 0;
+  final PageController _imagePageController = PageController();
 
   PostModel? _sharedPost;
   UserModel? _sharedPostAuthor;
@@ -38,6 +52,7 @@ class _PostCardState extends State<PostCard>
     super.initState();
     _likesCount = widget.post.likesCount;
     _checkIfLiked();
+    _checkIfSaved(); // NEW
 
     _likeAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
@@ -91,6 +106,7 @@ class _PostCardState extends State<PostCard>
   @override
   void dispose() {
     _likeAnimationController.dispose();
+    _imagePageController.dispose();
     super.dispose();
   }
 
@@ -103,6 +119,59 @@ class _PostCardState extends State<PostCard>
           _isLiked = liked;
         });
       }
+    }
+  }
+
+  Future<void> _checkIfSaved() async {
+    final currentUser = context.read<AuthProvider>().userModel;
+    if (currentUser != null) {
+      final saved = await _firestoreService.hasSavedPost(
+        currentUser.uid,
+        widget.post.postId,
+      );
+      if (mounted) {
+        setState(() {
+          _isSaved = saved;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleSave() async {
+    final currentUser = context.read<AuthProvider>().userModel;
+    if (currentUser == null) return;
+
+    setState(() {
+      _isSaved = !_isSaved;
+    });
+
+    try {
+      if (_isSaved) {
+        await _firestoreService.savePost(currentUser.uid, widget.post.postId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã lưu bài viết'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      } else {
+        await _firestoreService.unsavePost(currentUser.uid, widget.post.postId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã bỏ lưu bài viết'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _isSaved = !_isSaved;
+      });
     }
   }
 
@@ -123,6 +192,15 @@ class _PostCardState extends State<PostCard>
     try {
       if (_isLiked) {
         await _firestoreService.likePost(widget.post.postId, currentUser.uid);
+        
+        // Create notification for post owner (not for self)
+        if (widget.post.userId != currentUser.uid) {
+          await _notificationService.createLikeNotification(
+            fromUserId: currentUser.uid,
+            postOwnerId: widget.post.userId,
+            postId: widget.post.postId,
+          );
+        }
       } else {
         await _firestoreService.unlikePost(widget.post.postId, currentUser.uid);
       }
@@ -147,6 +225,7 @@ class _PostCardState extends State<PostCard>
           postId: widget.post.postId,
           postAuthor: widget.author?.displayName ?? 'Unknown',
           postCaption: widget.post.caption,
+          postOwnerId: widget.post.userId,
         ),
       ),
     );
@@ -237,6 +316,15 @@ class _PostCardState extends State<PostCard>
                             sharedUserId: widget.post.userId,
                           );
 
+                          // Create share notification for post owner (not for self)
+                          if (widget.post.userId != currentUser.uid) {
+                            await _notificationService.createShareNotification(
+                              fromUserId: currentUser.uid,
+                              postOwnerId: widget.post.userId,
+                              postId: widget.post.postId,
+                            );
+                          }
+
                           if (context.mounted) {
                             Navigator.pop(context); // Close dialog
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -292,12 +380,32 @@ class _PostCardState extends State<PostCard>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildPostHeader(),
+        // Use extracted PostHeader widget
+        PostHeader(
+          post: widget.post,
+          author: widget.author,
+        ),
         _buildCaption(),
         _buildMainContent(aspect),
         const Divider(height: 1),
-        _buildInteractionBar(),
-        _buildStats(),
+        // Use extracted PostInteractionBar widget
+        PostInteractionBar(
+          isLiked: _isLiked,
+          isSaved: _isSaved,
+          likesCount: _likesCount,
+          commentsCount: widget.post.commentsCount,
+          likeAnimation: _likeAnimation,
+          onLikePressed: _toggleLike,
+          onCommentPressed: _openComments,
+          onSharePressed: _showShareDialog,
+          onBookmarkPressed: _toggleSave,
+        ),
+        // Use extracted PostStats widget
+        PostStats(
+          likesCount: _likesCount,
+          commentsCount: widget.post.commentsCount,
+          onCommentPressed: _openComments,
+        ),
         const SizedBox(height: 12),
       ],
     );
@@ -306,18 +414,24 @@ class _PostCardState extends State<PostCard>
   Widget _buildPostHeader() {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-      leading: CircleAvatar(
-        backgroundColor: Colors.grey[200],
-        backgroundImage: widget.author?.photoURL != null
-            ? CachedNetworkImageProvider(widget.author!.photoURL!)
-            : null,
-        child: widget.author?.photoURL == null
-            ? const Icon(Icons.person, color: Colors.grey)
-            : null,
+      leading: GestureDetector(
+        onTap: _navigateToUserProfile,
+        child: CircleAvatar(
+          backgroundColor: Colors.grey[200],
+          backgroundImage: widget.author?.photoURL != null
+              ? CachedNetworkImageProvider(widget.author!.photoURL!)
+              : null,
+          child: widget.author?.photoURL == null
+              ? const Icon(Icons.person, color: Colors.grey)
+              : null,
+        ),
       ),
-      title: Text(
-        widget.author?.displayName ?? 'Người dùng',
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+      title: GestureDetector(
+        onTap: _navigateToUserProfile,
+        child: Text(
+          widget.author?.displayName ?? 'Người dùng',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
       ),
       subtitle: Text(
         timeago.format(widget.post.createdAt, locale: 'vi'),
@@ -326,6 +440,23 @@ class _PostCardState extends State<PostCard>
       trailing: IconButton(
         icon: const Icon(Icons.more_horiz),
         onPressed: () {},
+      ),
+    );
+  }
+
+  void _navigateToUserProfile() {
+    // Don't navigate if this is the current user's post
+    final currentUser = context.read<AuthProvider>().userModel;
+    if (currentUser?.uid == widget.post.userId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đây là trang cá nhân của bạn'), duration: Duration(seconds: 1)),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(userId: widget.post.userId),
       ),
     );
   }
@@ -356,21 +487,100 @@ class _PostCardState extends State<PostCard>
     }
 
     if (widget.post.imageUrls.isNotEmpty) {
+      final imageCount = widget.post.imageUrls.length;
+      
       return AspectRatio(
         aspectRatio: aspect,
-        child: CachedNetworkImage(
-          imageUrl: widget.post.imageUrls[0],
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            color: Colors.grey[200],
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
+        child: Stack(
+          children: [
+            // Image PageView - wrapped for mouse drag support on web
+            ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                dragDevices: {
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.mouse,
+                  PointerDeviceKind.trackpad,
+                },
+              ),
+              child: PageView.builder(
+                controller: _imagePageController,
+                itemCount: imageCount,
+                onPageChanged: (index) {
+                  setState(() => _currentImageIndex = index);
+                },
+                itemBuilder: (context, index) {
+                  return CachedNetworkImage(
+                    imageUrl: widget.post.imageUrls[index],
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.grey[200],
+                      child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.grey[100],
+                      child: const Icon(Icons.broken_image, color: Colors.grey),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-          errorWidget: (context, url, error) => Container(
-            color: Colors.grey[100],
-            child: const Icon(Icons.broken_image, color: Colors.grey),
-          ),
+            
+            // Image counter (top right) - only show if multiple images
+            if (imageCount > 1)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_currentImageIndex + 1}/$imageCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            
+            // Dot indicators (bottom center) - only show if multiple images
+            if (imageCount > 1)
+              Positioned(
+                bottom: 12,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(imageCount, (index) {
+                    final isActive = index == _currentImageIndex;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: isActive ? 8 : 6,
+                      height: isActive ? 8 : 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isActive 
+                            ? Colors.blue 
+                            : Colors.white.withValues(alpha: 0.7),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 2,
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+          ],
         ),
       );
     }

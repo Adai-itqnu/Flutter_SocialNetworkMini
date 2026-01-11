@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../models/post_model.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
+import '../services/notification_service.dart';
 
 class PostProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
+  final NotificationService _notificationService = NotificationService();
 
   List<PostModel> _posts = [];
   Map<String, UserModel> _postAuthors = {}; // Cache user data for posts
@@ -16,6 +18,26 @@ class PostProvider with ChangeNotifier {
   Map<String, UserModel> get postAuthors => _postAuthors;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  /// Get filtered posts based on visibility and current user's follow list
+  List<PostModel> getFilteredPosts(String? currentUserId, List<String> followingIds) {
+    if (currentUserId == null) return _posts;
+    
+    return _posts.where((post) {
+      // Show own posts
+      if (post.userId == currentUserId) return true;
+      
+      // Show public posts
+      if (post.visibility == PostVisibility.public) return true;
+      
+      // Show followers-only posts if following
+      if (post.visibility == PostVisibility.followersOnly) {
+        return followingIds.contains(post.userId);
+      }
+      
+      return false;
+    }).toList();
+  }
 
   // Initialize post stream
   void initializePostStream() {
@@ -65,17 +87,26 @@ class PostProvider with ChangeNotifier {
     required String userId,
     required String caption,
     required List<String> imageUrls,
+    PostVisibility visibility = PostVisibility.public,
   }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await _firestoreService.createPost(
+      final postId = await _firestoreService.createPost(
         userId: userId,
         caption: caption,
         imageUrls: imageUrls,
+        visibility: visibility,
       );
+      
+      // Create new post notification for all followers
+      await _notificationService.createNewPostNotificationForFollowers(
+        postAuthorId: userId,
+        postId: postId,
+      );
+      
       _isLoading = false;
       notifyListeners();
       return true;
@@ -107,9 +138,18 @@ class PostProvider with ChangeNotifier {
   }
 
   // Like post
-  Future<void> likePost(String postId, String userId) async {
+  Future<void> likePost(String postId, String userId, {String? postOwnerId}) async {
     try {
       await _firestoreService.likePost(postId, userId);
+      
+      // Create like notification if we know the post owner
+      if (postOwnerId != null && postOwnerId != userId) {
+        await _notificationService.createLikeNotification(
+          fromUserId: userId,
+          postOwnerId: postOwnerId,
+          postId: postId,
+        );
+      }
     } catch (e) {
       _error = e.toString();
       notifyListeners();

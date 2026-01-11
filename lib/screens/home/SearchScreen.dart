@@ -1,4 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+import '../../models/user_model.dart';
+import '../../models/post_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/firestore_service.dart';
+import '../profile/user_profile_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -9,21 +17,19 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
+  final FirestoreService _firestoreService = FirestoreService();
+  
   String _searchQuery = '';
   bool _isSearching = false;
+  bool _isLoading = false;
 
-  // Mock data tạm thời - sẽ thay bằng Firebase search sau
-  final List<Map<String, String>> _mockUsers = [];
-  final List<Map<String, String>> _mockPosts = [];
-
-  List<Map<String, String>> _filteredUsers = [];
-  List<Map<String, String>> _filteredPosts = [];
+  List<UserModel> _filteredUsers = [];
+  List<PostModel> _filteredPosts = [];
+  Map<String, UserModel> _postAuthors = {};
 
   @override
   void initState() {
     super.initState();
-    _filteredUsers = List.from(_mockUsers);
-    _filteredPosts = List.from(_mockPosts);
     _searchCtrl.addListener(_onSearchChanged);
   }
 
@@ -34,21 +40,75 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchCtrl.text.toLowerCase();
-      _isSearching = _searchQuery.isNotEmpty;
-      if (_isSearching) {
-        _filteredUsers = _mockUsers.where((user) =>
-            user['name']!.toLowerCase().contains(_searchQuery) ||
-            user['username']!.toLowerCase().contains(_searchQuery)).toList();
-        _filteredPosts = _mockPosts.where((post) =>
-            post['author']!.toLowerCase().contains(_searchQuery) ||
-            post['caption']!.toLowerCase().contains(_searchQuery)).toList();
-      } else {
-        _filteredUsers = List.from(_mockUsers);
-        _filteredPosts = List.from(_mockPosts);
+    final query = _searchCtrl.text.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _searchQuery = '';
+        _isSearching = false;
+        _filteredUsers = [];
+        _filteredPosts = [];
+      });
+    } else if (query != _searchQuery) {
+      setState(() {
+        _searchQuery = query;
+        _isSearching = true;
+      });
+      _performSearch(query);
+    }
+  }
+
+  Future<void> _performSearch(String query) async {
+    if (query.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Search users and posts in parallel
+      final results = await Future.wait([
+        _firestoreService.searchUsers(query),
+        _firestoreService.searchPosts(query),
+      ]);
+
+      final users = results[0] as List<UserModel>;
+      final posts = results[1] as List<PostModel>;
+
+      // Load authors for posts
+      for (final post in posts) {
+        if (!_postAuthors.containsKey(post.userId)) {
+          final author = await _firestoreService.getUser(post.userId);
+          if (author != null) {
+            _postAuthors[post.userId] = author;
+          }
+        }
       }
-    });
+
+      if (mounted && _searchQuery == query) {
+        setState(() {
+          _filteredUsers = users;
+          _filteredPosts = posts;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _navigateToProfile(String userId) {
+    final currentUserId = context.read<AuthProvider>().firebaseUser?.uid;
+    if (userId == currentUserId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đây là trang cá nhân của bạn')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => UserProfileScreen(userId: userId)),
+    );
   }
 
   @override
@@ -85,7 +145,17 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
         ),
-        // Recent searches or suggestions if not searching
+
+        // Loading indicator
+        if (_isLoading)
+          const SliverToBoxAdapter(
+            child: Center(child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            )),
+          ),
+
+        // Suggestions when not searching
         if (!_isSearching)
           SliverToBoxAdapter(
             child: Padding(
@@ -112,8 +182,9 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           ),
+
         // Users results
-        if (_isSearching && _filteredUsers.isNotEmpty)
+        if (_isSearching && !_isLoading && _filteredUsers.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -130,14 +201,16 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           ),
+
         // Posts results
-        if (_isSearching && _filteredPosts.isNotEmpty)
+        if (_isSearching && !_isLoading && _filteredPosts.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 16),
                   const Text(
                     'Bài viết',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
@@ -148,8 +221,9 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           ),
+
         // No results
-        if (_isSearching && _filteredUsers.isEmpty && _filteredPosts.isEmpty)
+        if (_isSearching && !_isLoading && _filteredUsers.isEmpty && _filteredPosts.isEmpty)
           SliverFillRemaining(
             child: Center(
               child: Column(
@@ -170,6 +244,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           ),
+
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
@@ -185,49 +260,79 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildUserResult(Map<String, String> user) {
+  Widget _buildUserResult(UserModel user) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: CircleAvatar(backgroundImage: NetworkImage(user['avatar']!)),
-        title: Text(user['name']!),
-        subtitle: Text(user['username']!),
-        trailing: ElevatedButton(
-          onPressed: () {
-            // Navigate to profile
-          },
-          child: const Text('Theo dõi'),
+        onTap: () => _navigateToProfile(user.uid),
+        leading: CircleAvatar(
+          backgroundColor: Colors.grey[300],
+          backgroundImage: user.photoURL != null && user.photoURL!.isNotEmpty
+              ? CachedNetworkImageProvider(user.photoURL!)
+              : null,
+          child: user.photoURL == null || user.photoURL!.isEmpty
+              ? const Icon(Icons.person, color: Colors.white)
+              : null,
         ),
+        title: Text(user.displayName, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('@${user.username}'),
+        trailing: const Icon(Icons.chevron_right),
       ),
     );
   }
 
-  Widget _buildPostResult(Map<String, String> post) {
+  Widget _buildPostResult(PostModel post) {
+    final author = _postAuthors[post.userId];
+    
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(backgroundImage: NetworkImage(post['avatar']!)),
-            title: Text(post['author']!, style: const TextStyle(fontWeight: FontWeight.w600)),
-            trailing: const Icon(Icons.more_vert),
-          ),
-          Container(
-            width: double.infinity,
-            height: 200,
-            color: Colors.grey[200],
-            child: Image.network(post['image']!, fit: BoxFit.cover),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              post['caption']!,
-              style: const TextStyle(fontSize: 14),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          if (author != null) {
+            _navigateToProfile(post.userId);
+          }
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              leading: CircleAvatar(
+                backgroundColor: Colors.grey[300],
+                backgroundImage: author?.photoURL != null && author!.photoURL!.isNotEmpty
+                    ? CachedNetworkImageProvider(author.photoURL!)
+                    : null,
+                child: author?.photoURL == null
+                    ? const Icon(Icons.person, color: Colors.white, size: 20)
+                    : null,
+              ),
+              title: Text(
+                author?.displayName ?? 'Người dùng',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text('@${author?.username ?? ''}'),
             ),
-          ),
-        ],
+            if (post.imageUrls.isNotEmpty)
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: CachedNetworkImage(
+                  imageUrl: post.imageUrls.first,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(color: Colors.grey[200]),
+                ),
+              ),
+            if (post.caption.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  post.caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
