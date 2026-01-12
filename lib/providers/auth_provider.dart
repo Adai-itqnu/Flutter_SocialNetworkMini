@@ -90,6 +90,31 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Sign in with Google
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final userCredential = await _authService.signInWithGoogle();
+      _isLoading = false;
+      notifyListeners();
+      
+      if (userCredential == null) {
+        // User cancelled
+        return false;
+      }
+      
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
     await _authService.signOut();

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../utils/validators.dart';
 import '../../widgets/auth_scaffold.dart';
 import '../../widgets/text_field_label.dart';
+import '../../widgets/gradient_button.dart';
 import '../../providers/auth_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -182,20 +183,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                ElevatedButton(
+                const SizedBox(height: 24),
+                GradientButton(
                   onPressed: authProvider.isLoading ? null : _submit,
-                  child: authProvider.isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text('Đăng ký'),
+                  isLoading: authProvider.isLoading,
+                  child: const Text('Đăng ký'),
                 ),
                 const SizedBox(height: 12),
                 TextButton(

@@ -1,0 +1,59 @@
+﻿Analyzing Flutter_SocialNetworkMini...                          
+
+warning - Unused import: '../models/follow_model.dart' - lib\providers\follow_provider.dart:2:8 - unused_import
+   info - The private field _notificationUsers could be 'final' - lib\providers\notification_provider.dart:13:26 - prefer_final_fields
+   info - The private field _isLoading could be 'final' - lib\providers\notification_provider.dart:15:8 - prefer_final_fields
+   info - Don't invoke 'print' in production code - lib\providers\notification_provider.dart:36:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\providers\notification_provider.dart:40:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\providers\notification_provider.dart:53:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\providers\notification_provider.dart:61:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\providers\notification_provider.dart:72:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\providers\notification_provider.dart:77:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\providers\notification_provider.dart:106:7 - avoid_print
+   info - The private field _postAuthors could be 'final' - lib\providers\post_provider.dart:12:26 - prefer_final_fields
+   info - Don't invoke 'print' in production code - lib\providers\post_provider.dart:75:11 - avoid_print
+warning - The value of the field '_notificationService' isn't used - lib\providers\user_provider.dart:10:29 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\screens\auth\forgot_password_screen.dart:44:25 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\auth\login_screen.dart:147:52 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\auth\login_screen.dart:153:52 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\screens\auth\register_screen.dart:54:32 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\comments\comment_screen.dart:110:34 - deprecated_member_use
+   info - The private field _followingStatus could be 'final' - lib\screens\follow\follow_list_screen.dart:32:21 - prefer_final_fields
+   info - The file name 'SearchScreen.dart' isn't a lower_case_with_underscores identifier - lib\screens\home\SearchScreen.dart:1:1 - file_names
+   info - The private field _postAuthors could be 'final' - lib\screens\home\SearchScreen.dart:28:26 - prefer_final_fields
+   info - The private field _selectedMedia could be 'final' - lib\screens\home\create_post_screen.dart:25:15 - prefer_final_fields
+   info - Unnecessary braces in a string interpolation - lib\screens\home\create_post_screen.dart:453:60 - unnecessary_brace_in_string_interps
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\home\home_screen.dart:239:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\home\home_screen.dart:240:38 - deprecated_member_use
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\screens\home\home_screen.dart:265:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\home\home_screen.dart:268:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\home\home_screen.dart:283:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\home\home_screen.dart:284:38 - deprecated_member_use
+warning - The value of the field '_isEditingText' isn't used - lib\screens\home\story_upload_screen.dart:21:8 - unused_field
+   info - Statements in an if should be enclosed in a block - lib\screens\home\story_upload_screen.dart:103:18 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\home\story_upload_screen.dart:266:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\home\story_upload_screen.dart:299:47 - deprecated_member_use
+   info - The private field _selectedIndex could be 'final' - lib\screens\notification\friend_requests_screen.dart:11:7 - prefer_final_fields
+warning - The value of the field '_selectedIndex' isn't used - lib\screens\notification\friend_requests_screen.dart:11:7 - unused_field
+warning - The value of the field '_isAddPressed' isn't used - lib\screens\notification\friend_requests_screen.dart:12:8 - unused_field
+warning - The declaration '_onNavTapped' isn't referenced - lib\screens\notification\friend_requests_screen.dart:41:16 - unused_element
+warning - Unused import: '../../models/post_model.dart' - lib\screens\notification\notifications_screen.dart:7:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\notification\notifications_screen.dart:348:44 - deprecated_member_use
+   info - The private field _sharedPostsData could be 'final' - lib\screens\profile\profile_screen.dart:28:26 - prefer_final_fields
+   info - The private field _authorsCache could be 'final' - lib\screens\profile\saved_posts_screen.dart:21:26 - prefer_final_fields
+   info - The private field _sharedPostsData could be 'final' - lib\screens\profile\user_profile_screen.dart:29:26 - prefer_final_fields
+   info - Don't use 'BuildContext's across async gaps - lib\screens\profile\user_profile_screen.dart:46:28 - use_build_context_synchronously
+warning - The value of the local variable 'username' isn't used - lib\services\auth_service.dart:76:11 - unused_local_variable
+   info - Don't invoke 'print' in production code - lib\services\imgbb_service.dart:66:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\notification_service.dart:136:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\notification_service.dart:265:7 - avoid_print
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\auth_scaffold.dart:23:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\auth_scaffold.dart:24:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\auth_scaffold.dart:41:43 - deprecated_member_use
+warning - Unused import: 'post_card/post_image_carousel.dart' - lib\widgets\post_card.dart:17:8 - unused_import
+warning - The declaration '_buildPostHeader' isn't referenced - lib\widgets\post_card.dart:414:10 - unused_element
+warning - The declaration '_buildInteractionBar' isn't referenced - lib\widgets\post_card.dart:650:10 - unused_element
+warning - The declaration '_buildStats' isn't referenced - lib\widgets\post_card.dart:718:10 - unused_element
+   info - Library names are not necessary - lib\widgets\post_card\index.dart:2:9 - unnecessary_library_name
+warning - The asset file '.env' doesn't exist - pubspec.yaml:90:7 - asset_does_not_exist
+

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../utils/validators.dart';
 import '../../widgets/auth_scaffold.dart';
 import '../../widgets/text_field_label.dart';
+import '../../widgets/gradient_button.dart';
 import '../../providers/auth_provider.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -57,7 +58,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      title: 'Khôi phục mật khẩu 🔐',
+      title: 'Khôi phục mật khẩu',
       subtitle: 'Nhập email để nhận hướng dẫn đặt lại.',
       form: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
@@ -73,20 +74,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   validator: requiredValidator,
                   enabled: !authProvider.isLoading,
                 ),
-                const SizedBox(height: 20),
-                ElevatedButton(
+                const SizedBox(height: 24),
+                GradientButton(
                   onPressed: authProvider.isLoading ? null : _submit,
-                  child: authProvider.isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text('Gửi hướng dẫn'),
+                  isLoading: authProvider.isLoading,
+                  child: const Text('Gửi hướng dẫn'),
                 ),
                 const SizedBox(height: 12),
                 TextButton(

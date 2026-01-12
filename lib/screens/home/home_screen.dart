@@ -119,6 +119,13 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: _showTitle ? 0 : 0.5,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Image.asset(
+            'assets/images/logo.png',
+            fit: BoxFit.contain,
+          ),
+        ),
         title: AnimatedOpacity(
           opacity: _showTitle ? 1.0 : 0.0,
           duration: const Duration(milliseconds: 200),

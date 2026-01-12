@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/user_model.dart';
 
 class AuthService {
@@ -23,6 +24,57 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     }
+  }
+
+  // Sign in with Google using Firebase Auth directly (works better on web)
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      UserCredential userCredential;
+      
+      // Use signInWithPopup for web
+      if (kIsWeb) {
+        GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        
+        userCredential = await _auth.signInWithPopup(googleProvider);
+      } else {
+        // For mobile platforms, use signInWithProvider
+        GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        userCredential = await _auth.signInWithProvider(googleProvider);
+      }
+
+      // Check if user exists in Firestore, if not create new document
+      if (userCredential.user != null) {
+        final userDoc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
+        
+        if (!userDoc.exists) {
+          // Create new user document for first-time Google sign-in
+          await _createUserDocument(
+            uid: userCredential.user!.uid,
+            email: userCredential.user!.email ?? '',
+            username: _generateUsername(userCredential.user!.email ?? ''),
+            displayName: userCredential.user!.displayName ?? 'User',
+            photoURL: userCredential.user!.photoURL,
+          );
+        }
+      }
+
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'popup-closed-by-user') {
+        return null; // User cancelled
+      }
+      throw Exception('Đăng nhập Google thất bại: ${e.message}');
+    } catch (e) {
+      throw Exception('Đăng nhập Google thất bại: $e');
+    }
+  }
+
+  // Generate username from email
+  String _generateUsername(String email) {
+    final username = email.split('@').first.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+    return '\${username}_\${DateTime.now().millisecondsSinceEpoch % 10000}';
   }
 
   // Sign up with email and password
@@ -67,12 +119,14 @@ class AuthService {
     required String email,
     required String username,
     required String displayName,
+    String? photoURL,
   }) async {
     UserModel newUser = UserModel(
       uid: uid,
       email: email,
       username: username,
       displayName: displayName,
+      photoURL: photoURL,
       createdAt: DateTime.now(),
     );
 

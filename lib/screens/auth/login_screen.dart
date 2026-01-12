@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../utils/validators.dart';
 import '../../widgets/auth_scaffold.dart';
 import '../../widgets/text_field_label.dart';
+import '../../widgets/gradient_button.dart';
 import '../../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -64,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      title: 'Chào mừng trở lại 👋',
+      title: 'Chào mừng trở lại',
       subtitle: 'Đăng nhập để tiếp tục trải nghiệm.',
       form: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
@@ -108,19 +109,59 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Text('Quên mật khẩu?'),
                   ),
                 ),
-                const SizedBox(height: 12),
-                ElevatedButton(
+                const SizedBox(height: 24),
+                GradientButton(
                   onPressed: authProvider.isLoading ? null : _submit,
-                  child: authProvider.isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text('Đăng nhập'),
+                  isLoading: authProvider.isLoading,
+                  child: const Text('Đăng nhập'),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey[400])),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'Hoặc',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey[400])),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: authProvider.isLoading
+                      ? null
+                      : () async {
+                          final success = await authProvider.signInWithGoogle();
+                          if (mounted) {
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Đăng nhập Google thành công!'),
+                                ),
+                              );
+                            } else if (authProvider.error != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(authProvider.error!),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  icon: Image.network(
+                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                    height: 20,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.login, size: 20),
+                  ),
+                  label: const Text('Tiếp tục với Google'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(
