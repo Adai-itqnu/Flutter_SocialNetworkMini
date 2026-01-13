@@ -78,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  validator: requiredValidator,
+                  validator: emailValidator,
                   enabled: !authProvider.isLoading,
                 ),
                 const SizedBox(height: 20),
@@ -86,7 +86,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  validator: requiredValidator,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Thông tin bắt buộc';
+                    }
+                    if (value.length < 6) {
+                      return 'Mật khẩu phải ít nhất 6 ký tự';
+                    }
+                    return null;
+                  },
                   enabled: !authProvider.isLoading,
                   decoration: InputDecoration(
                     suffixIcon: IconButton(

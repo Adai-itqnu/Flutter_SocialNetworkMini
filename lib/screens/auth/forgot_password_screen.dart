@@ -71,7 +71,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  validator: requiredValidator,
+                  validator: emailValidator,
                   enabled: !authProvider.isLoading,
                 ),
                 const SizedBox(height: 24),

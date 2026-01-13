@@ -79,7 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      title: 'Tạo tài khoản ✨',
+      title: 'Tạo tài khoản',
       subtitle: 'Chỉ mất vài giây để bắt đầu.',
       form: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
@@ -91,25 +91,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const TextFieldLabel('Họ và tên'),
                 TextFormField(
                   controller: _displayNameController,
-                  validator: requiredValidator,
+                  validator: displayNameValidator,
                   enabled: !authProvider.isLoading,
                 ),
                 const SizedBox(height: 20),
                 const TextFieldLabel('Username'),
                 TextFormField(
                   controller: _usernameController,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Thông tin bắt buộc';
-                    }
-                    if (value.length < 3) {
-                      return 'Username phải ít nhất 3 ký tự';
-                    }
-                    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
-                      return 'Username chỉ chứa chữ, số và dấu gạch dưới';
-                    }
-                    return null;
-                  },
+                  validator: usernameValidator,
                   enabled: !authProvider.isLoading,
                 ),
                 const SizedBox(height: 20),
@@ -117,16 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Thông tin bắt buộc';
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(value)) {
-                      return 'Email không hợp lệ';
-                    }
-                    return null;
-                  },
+                  validator: emailValidator,
                   enabled: !authProvider.isLoading,
                 ),
                 const SizedBox(height: 20),
@@ -134,15 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Thông tin bắt buộc';
-                    }
-                    if (value.length < 6) {
-                      return 'Mật khẩu phải ít nhất 6 ký tự';
-                    }
-                    return null;
-                  },
+                  validator: passwordValidator,
                   enabled: !authProvider.isLoading,
                   decoration: InputDecoration(
                     suffixIcon: IconButton(
@@ -161,15 +133,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Thông tin bắt buộc';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Mật khẩu không khớp';
-                    }
-                    return null;
-                  },
+                  validator: (value) => confirmPasswordValidator(value, _passwordController.text),
                   enabled: !authProvider.isLoading,
                   decoration: InputDecoration(
                     suffixIcon: IconButton(

@@ -121,9 +121,11 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: _showTitle ? 0 : 0.5,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Image.asset(
-            'assets/images/logo.png',
-            fit: BoxFit.contain,
+          child: ClipOval(
+            child: Image.asset(
+              'assets/images/logo.png',
+              fit: BoxFit.cover,
+            ),
           ),
         ),
         title: AnimatedOpacity(
