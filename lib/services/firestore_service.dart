@@ -33,16 +33,20 @@ class FirestoreService {
     }
   }
 
+  // Update user role (for admin functionality)
+  Future<void> updateUserRole(String uid, String role) async {
+    try {
+      await _firestore.collection('users').doc(uid).update({'role': role});
+    } catch (e) {
+      throw Exception('Lỗi khi cập nhật role: $e');
+    }
+  }
+
   // Get all users (for suggestions)
   Future<List<UserModel>> getAllUsers({int limit = 50}) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .limit(limit)
-          .get();
-      return snapshot.docs
-          .map((doc) => UserModel.fromFirestore(doc))
-          .toList();
+      final snapshot = await _firestore.collection('users').limit(limit).get();
+      return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
     } catch (e) {
       throw Exception('Lỗi khi lấy danh sách users: $e');
     }
@@ -111,6 +115,15 @@ class FirestoreService {
           posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return posts;
         });
+  }
+
+  // Update post
+  Future<void> updatePost(String postId, Map<String, dynamic> data) async {
+    try {
+      await _firestore.collection('posts').doc(postId).update(data);
+    } catch (e) {
+      throw Exception('Lỗi khi cập nhật bài viết: $e');
+    }
   }
 
   // Delete post
@@ -321,7 +334,7 @@ class FirestoreService {
           .collection('followers')
           .where('followingId', isEqualTo: userId)
           .get();
-      
+
       return snapshot.docs
           .map((doc) => doc.data()['followerId'] as String)
           .toList();
@@ -337,7 +350,7 @@ class FirestoreService {
           .collection('followers')
           .where('followerId', isEqualTo: userId)
           .get();
-      
+
       return snapshot.docs
           .map((doc) => doc.data()['followingId'] as String)
           .toList();
@@ -462,15 +475,20 @@ class FirestoreService {
     }
   }
 
+  // Get single post stream
+  Stream<PostModel?> getPostStream(String postId) {
+    return _firestore.collection('posts').doc(postId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return PostModel.fromFirestore(doc);
+    });
+  }
+
   // ==================== SAVED POSTS OPERATIONS ====================
 
   // Save a post
   Future<void> savePost(String userId, String postId) async {
     try {
-      await _firestore
-          .collection('saved_posts')
-          .doc('${userId}_$postId')
-          .set({
+      await _firestore.collection('saved_posts').doc('${userId}_$postId').set({
         'userId': userId,
         'postId': postId,
         'savedAt': Timestamp.now(),
@@ -545,12 +563,14 @@ class FirestoreService {
     try {
       final queryLower = query.toLowerCase();
       final snapshot = await _firestore.collection('users').get();
-      
+
       return snapshot.docs
           .map((doc) => UserModel.fromFirestore(doc))
-          .where((user) =>
-              user.displayName.toLowerCase().contains(queryLower) ||
-              user.username.toLowerCase().contains(queryLower))
+          .where(
+            (user) =>
+                user.displayName.toLowerCase().contains(queryLower) ||
+                user.username.toLowerCase().contains(queryLower),
+          )
           .toList();
     } catch (e) {
       throw Exception('Lỗi khi tìm kiếm: $e');
@@ -567,7 +587,7 @@ class FirestoreService {
           .orderBy('createdAt', descending: true)
           .limit(50)
           .get();
-      
+
       return snapshot.docs
           .map((doc) => PostModel.fromFirestore(doc))
           .where((post) => post.caption.toLowerCase().contains(queryLower))

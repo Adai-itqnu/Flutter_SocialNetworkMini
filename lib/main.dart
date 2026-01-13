@@ -13,6 +13,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
+import 'screens/admin/admin_dashboard_screen.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 void main() async {
@@ -49,7 +50,7 @@ class SocialMockApp extends StatelessWidget {
           primarySwatch: Colors.deepPurple,
           scaffoldBackgroundColor: Colors.white,
           appBarTheme: const AppBarTheme(elevation: 0.5),
-          
+
           // Input Decoration Theme
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
@@ -68,10 +69,7 @@ class SocialMockApp extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF667eea),
-                width: 2,
-              ),
+              borderSide: const BorderSide(color: Color(0xFF667eea), width: 2),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -82,7 +80,7 @@ class SocialMockApp extends StatelessWidget {
               borderSide: const BorderSide(color: Colors.red, width: 2),
             ),
           ),
-          
+
           // Elevated Button Theme
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
@@ -98,7 +96,7 @@ class SocialMockApp extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Outlined Button Theme
           outlinedButtonTheme: OutlinedButtonThemeData(
             style: OutlinedButton.styleFrom(
@@ -113,7 +111,7 @@ class SocialMockApp extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Text Button Theme
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
@@ -133,17 +131,28 @@ class SocialMockApp extends StatelessWidget {
               );
             }
 
-            // If authenticated, go to Home
+            // If authenticated, check role and redirect
             if (authProvider.isAuthenticated) {
-              // Initialize streams when logged in
+              final currentUser = authProvider.userModel;
+
+              // Check if admin
+              if (currentUser != null && currentUser.role == 'admin') {
+                // Admin: NO need to initialize user streams
+                return const AdminDashboardScreen();
+              }
+
+              // Regular user: Initialize streams
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 context.read<PostProvider>().initializePostStream();
                 if (authProvider.firebaseUser != null) {
                   final uid = authProvider.firebaseUser!.uid;
                   context.read<UserProvider>().loadUser(uid);
-                  context.read<NotificationProvider>().initializeNotificationStream(uid);
+                  context
+                      .read<NotificationProvider>()
+                      .initializeNotificationStream(uid);
                 }
               });
+
               return const HomeScreen();
             }
 

@@ -22,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _isAddPressed = false;
   final ScrollController _scrollController = ScrollController();
-  
+
   // For hide-on-scroll title
   bool _showTitle = true;
   double _lastScrollOffset = 0;
@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openCreateOptions() {
     return showModalBottomSheet(
-      context: context, 
+      context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -122,10 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: ClipOval(
-            child: Image.asset(
-              'assets/images/logo.png',
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
           ),
         ),
         title: AnimatedOpacity(
@@ -145,15 +142,20 @@ class _HomeScreenState extends State<HomeScreen> {
           Consumer<NotificationProvider>(
             builder: (context, notificationProvider, _) {
               final unreadCount = notificationProvider.unreadCount;
-              
+
               return IconButton(
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
                 icon: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    const Icon(Icons.notifications_outlined, color: Colors.black),
+                    const Icon(
+                      Icons.notifications_outlined,
+                      color: Colors.black,
+                    ),
                     if (unreadCount > 0)
                       Positioned(
                         right: -2,
@@ -301,32 +303,44 @@ class _HomeScreenState extends State<HomeScreen> {
     final stackIndex = index - 1;
     final bool selected = _selectedIndex == stackIndex;
 
-    return InkWell(
-      onTap: () => _onNavTapped(index),
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: selected ? Colors.grey.shade200 : Colors.transparent,
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        final photoURL = authProvider.userModel?.photoURL;
+
+        return InkWell(
+          onTap: () => _onNavTapped(index),
           borderRadius: BorderRadius.circular(20),
-        ),
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: selected ? Colors.black : Colors.transparent,
-              width: 1.5,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: selected ? Colors.grey.shade200 : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? Colors.black : Colors.transparent,
+                  width: 1.5,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 14,
+                backgroundColor: Colors.grey[300],
+                backgroundImage: photoURL != null && photoURL.isNotEmpty
+                    ? NetworkImage(photoURL)
+                    : null,
+                child: photoURL == null || photoURL.isEmpty
+                    ? const Icon(Icons.person, size: 16, color: Colors.grey)
+                    : null,
+              ),
             ),
           ),
-          child: const CircleAvatar(
-            radius: 14,
-            child: Icon(Icons.person, size: 16),
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
