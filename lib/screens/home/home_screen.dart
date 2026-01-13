@@ -8,6 +8,7 @@ import '../../widgets/post_card.dart';
 import 'create_post_screen.dart';
 import 'SearchScreen.dart';
 import '../notification/notifications_screen.dart';
+import '../message/messages_screen.dart';
 import '../follow/my_follow_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -142,6 +143,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MessagesScreen()),
+            ),
+            icon: const Icon(Icons.chat_bubble_outline, color: Colors.black),
+          ),
           Consumer<NotificationProvider>(
             builder: (context, notificationProvider, _) {
               final unreadCount = notificationProvider.unreadCount;
