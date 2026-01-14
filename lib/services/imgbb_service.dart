@@ -4,14 +4,17 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 
 class ImgBBService {
-  static final String _apiKey = dotenv.env['IMGBB_API_KEY'] ?? '';
+  // Read from --dart-define first (production), fallback to .env (development)
+  static final String _apiKey = const String.fromEnvironment('IMGBB_API_KEY').isNotEmpty
+      ? const String.fromEnvironment('IMGBB_API_KEY')
+      : (dotenv.env['IMGBB_API_KEY'] ?? '');
   static const String _baseUrl = 'https://api.imgbb.com/1/upload';
 
   // Upload image to ImgBB - Web compatible version
   static Future<String> uploadImage(XFile imageFile) async {
     if (_apiKey.isEmpty) {
       throw Exception(
-          'ImgBB API key không được tìm thấy. Vui lòng cấu hình file .env');
+          'ImgBB API key không được tìm thấy. Vui lòng build với: --dart-define=IMGBB_API_KEY=your_key');
     }
 
     try {

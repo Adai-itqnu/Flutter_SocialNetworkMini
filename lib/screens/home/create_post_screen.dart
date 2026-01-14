@@ -25,11 +25,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   List<XFile> _selectedMedia = [];
   bool _isUploading = false;
   double _uploadProgress = 0.0;
-  PostVisibility _selectedVisibility = PostVisibility.public; // NEW
+  PostVisibility _selectedVisibility = PostVisibility.public;
   
-  // Limits
+  // Limits (Images only - ImgBB doesn't support video)
   static const int maxMediaCount = 10;
-  static const int maxFileSizeMB = 10; // 10MB per file
+  static const int maxFileSizeMB = 10; // 10MB per image
   static const int maxTotalSizeMB = 50; // 50MB total
 
   bool get _canPost =>
@@ -50,7 +50,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   /// Pick multiple images from gallery
   Future<void> _pickFromGallery() async {
     if (_selectedMedia.length >= maxMediaCount) {
-      _showLimitMessage('Tối đa $maxMediaCount ảnh/video');
+      _showLimitMessage('Tối đa $maxMediaCount ảnh');
       return;
     }
 
@@ -72,27 +72,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
     } catch (e) {
       _showErrorMessage('Lỗi khi chọn ảnh: $e');
-    }
-  }
-
-  /// Pick video from gallery
-  Future<void> _pickVideo() async {
-    if (_selectedMedia.length >= maxMediaCount) {
-      _showLimitMessage('Tối đa $maxMediaCount ảnh/video');
-      return;
-    }
-
-    try {
-      final XFile? video = await _picker.pickVideo(
-        source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 2),
-      );
-
-      if (video != null) {
-        await _validateAndAddMedia([video]);
-      }
-    } catch (e) {
-      _showErrorMessage('Lỗi khi chọn video: $e');
     }
   }
 
@@ -433,11 +412,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     onPressed: _isUploading ? null : _pickFromGallery,
                   ),
                   _buildMediaButton(
-                    icon: Icons.videocam_outlined,
-                    label: 'Video',
-                    onPressed: _isUploading ? null : _pickVideo,
-                  ),
-                  _buildMediaButton(
                     icon: Icons.camera_alt_outlined,
                     label: 'Chụp ảnh',
                     onPressed: _isUploading ? null : _takePhoto,
@@ -450,7 +424,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'Giới hạn: ${maxFileSizeMB}MB/file, tối đa ${maxMediaCount} files, tổng ${maxTotalSizeMB}MB',
+                'Giới hạn: ${maxFileSizeMB}MB/ảnh, tối đa $maxMediaCount ảnh, tổng ${maxTotalSizeMB}MB',
                 style: TextStyle(fontSize: 12, color: Colors.grey[500]),
               ),
             ),
@@ -498,9 +472,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Widget _buildMediaItem(int index) {
     final file = _selectedMedia[index];
-    final isVideo = file.path.toLowerCase().endsWith('.mp4') ||
-        file.path.toLowerCase().endsWith('.mov') ||
-        file.path.toLowerCase().endsWith('.avi');
 
     return Stack(
       children: [
@@ -514,42 +485,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               future: file.readAsBytes(),
               builder: (context, snapshot) {
                 if (snapshot.hasData) {
-                  if (isVideo) {
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Container(
-                          color: Colors.black87,
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.videocam,
-                                  color: Colors.white,
-                                  size: 40,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  file.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
                   return Image.memory(
                     snapshot.data!,
                     fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildFallbackPreview(file, 'Không thể preview');
+                    },
                   );
+                }
+                if (snapshot.hasError) {
+                  return _buildFallbackPreview(file, 'Lỗi tải ảnh');
                 }
                 return const Center(child: CircularProgressIndicator());
               },
@@ -578,31 +523,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               ),
             ),
           ),
-        
-        // Video indicator
-        if (isVideo)
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.play_arrow, color: Colors.white, size: 14),
-                  SizedBox(width: 2),
-                  Text(
-                    'Video',
-                    style: TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-          ),
           
         // Index number
         Positioned(
@@ -627,4 +547,36 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ],
     );
   }
+
+  /// Build fallback preview for files that can't be displayed
+  Widget _buildFallbackPreview(XFile file, String message) {
+    return Container(
+      color: Colors.grey[300],
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.insert_drive_file, size: 40, color: Colors.grey[600]),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                file.name,
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              message,
+              style: TextStyle(fontSize: 10, color: Colors.orange[700]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
