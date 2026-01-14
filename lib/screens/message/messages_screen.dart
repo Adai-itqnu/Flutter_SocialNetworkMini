@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../providers/follow_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user_model.dart';
 import '../../models/chat_room_model.dart';
 import '../../models/message_model.dart';
 import '../../services/chat_service.dart';
+import '../../services/imgbb_service.dart';
+import '../profile/user_profile_screen.dart';
+import 'chat_room_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});
@@ -99,16 +103,225 @@ class _MessagesScreenState extends State<MessagesScreen> {
     });
   }
 
+  /// Show user profile screen
+  void _showUserProfile(UserModel user) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(userId: user.uid),
+      ),
+    );
+  }
+
+  /// Pick image and send to chat
+  Future<void> _pickAndSendImage() async {
+    if (_currentChatRoom == null || _selectedUser == null) return;
+    
+    final authProvider = context.read<AuthProvider>();
+    final currentUserId = authProvider.userModel?.uid;
+    if (currentUserId == null) return;
+
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      
+      if (image == null) return;
+
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đang gửi ảnh...'), duration: Duration(seconds: 2)),
+      );
+
+      // Upload to ImgBB
+      final imageUrl = await ImgBBService.uploadImage(image);
+      
+      // Send image as message
+      await _chatService.sendMessage(
+        chatId: _currentChatRoom!.chatId,
+        senderId: currentUserId,
+        text: '[IMAGE]$imageUrl',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi gửi ảnh: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Row(
-        children: [
-          _buildChatList(),
-          Container(width: 1, color: Colors.grey[300]),
-          Expanded(flex: 2, child: _buildChatConversation()),
-        ],
+    // Use LayoutBuilder for responsive design
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Mobile layout: only show chat list, tap navigates to chat room
+        final isMobile = constraints.maxWidth < 600;
+        
+        if (isMobile) {
+          return Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0.5,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: const Text('Tin nhắn', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              actions: [
+                IconButton(icon: const Icon(Icons.more_horiz, color: Colors.black), onPressed: () {}),
+                IconButton(icon: const Icon(Icons.edit_square, color: Colors.black), onPressed: () {}),
+              ],
+            ),
+            body: _buildMobileChatList(),
+          );
+        }
+        
+        // Desktop/Tablet layout: side by side
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: Row(
+            children: [
+              _buildChatList(),
+              Container(width: 1, color: Colors.grey[300]),
+              Expanded(flex: 2, child: _buildChatConversation()),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Mobile chat list - tap to navigate to chat room
+  Widget _buildMobileChatList() {
+    return Column(
+      children: [
+        // Search Bar
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Tìm kiếm trên Messenger',
+              hintStyle: TextStyle(color: Colors.grey[600]),
+              prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+              filled: true,
+              fillColor: Colors.grey[200],
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
+        ),
+        // Chat List
+        Expanded(
+          child: Consumer<FollowProvider>(
+            builder: (context, followProvider, _) {
+              final followingUsers = followProvider.following;
+              final authProvider = context.read<AuthProvider>();
+              final currentUserId = authProvider.userModel?.uid;
+
+              if (followProvider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (followingUsers.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text('Chưa follow ai', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                      const SizedBox(height: 8),
+                      Text('Hãy follow bạn bè để bắt đầu chat', style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center),
+                    ],
+                  ),
+                );
+              }
+
+              // Use StreamBuilder for chat rooms
+              return StreamBuilder<List<ChatRoomModel>>(
+                stream: currentUserId != null ? _chatService.getChatRooms(currentUserId) : null,
+                builder: (context, chatRoomsSnapshot) {
+                  final Map<String, DateTime?> lastMessageTimes = {};
+                  if (chatRoomsSnapshot.hasData) {
+                    for (final room in chatRoomsSnapshot.data!) {
+                      final otherUserId = room.participants.firstWhere(
+                        (id) => id != currentUserId,
+                        orElse: () => '',
+                      );
+                      if (otherUserId.isNotEmpty) {
+                        lastMessageTimes[otherUserId] = room.lastMessageTime;
+                      }
+                    }
+                  }
+
+                  // Sort by last message time
+                  final sortedUsers = List<UserModel>.from(followingUsers);
+                  sortedUsers.sort((a, b) {
+                    final timeA = lastMessageTimes[a.uid];
+                    final timeB = lastMessageTimes[b.uid];
+                    if (timeA == null && timeB == null) return 0;
+                    if (timeA == null) return 1;
+                    if (timeB == null) return -1;
+                    return timeB.compareTo(timeA);
+                  });
+
+                  return ListView.builder(
+                    itemCount: sortedUsers.length,
+                    itemBuilder: (context, index) {
+                      final user = sortedUsers[index];
+                      
+                      return ListTile(
+                        leading: CircleAvatar(
+                          radius: 28,
+                          backgroundColor: Colors.blue[700],
+                          backgroundImage: user.photoURL != null && user.photoURL!.isNotEmpty 
+                              ? NetworkImage(user.photoURL!) 
+                              : null,
+                          child: user.photoURL == null || user.photoURL!.isEmpty
+                              ? Text(
+                                  user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : 'U',
+                                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                                )
+                              : null,
+                        ),
+                        title: Text(
+                          user.displayName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: _buildLastMessage(user),
+                        onTap: () => _openChatRoom(user),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Open chat room screen for mobile
+  Future<void> _openChatRoom(UserModel user) async {
+    final authProvider = context.read<AuthProvider>();
+    final currentUser = authProvider.userModel;
+    if (currentUser == null) return;
+
+    // Navigate to chat room screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatRoomScreen(
+          otherUser: user,
+          currentUser: currentUser,
+        ),
       ),
     );
   }
@@ -306,9 +519,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   ],
                 ),
               ),
-              IconButton(icon: const Icon(Icons.call, color: Colors.blue), onPressed: () {}),
-              IconButton(icon: const Icon(Icons.videocam, color: Colors.blue), onPressed: () {}),
-              IconButton(icon: const Icon(Icons.info_outline, color: Colors.blue), onPressed: () {}),
+              IconButton(
+                icon: const Icon(Icons.info_outline, color: Colors.blue), 
+                onPressed: () => _showUserProfile(selectedUser),
+              ),
             ],
           ),
         ),
@@ -367,9 +581,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1))),
           child: Row(
             children: [
-              IconButton(icon: Icon(Icons.add_circle, color: Colors.blue[700]), onPressed: () {}),
-              IconButton(icon: Icon(Icons.image, color: Colors.blue[700]), onPressed: () {}),
-              IconButton(icon: Icon(Icons.mic, color: Colors.blue[700]), onPressed: () {}),
+              IconButton(icon: Icon(Icons.image, color: Colors.blue[700]), onPressed: _pickAndSendImage),
               Expanded(
                 child: TextField(
                   controller: _messageController,
@@ -394,6 +606,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _buildMessageBubble(MessageModel message, bool isSent) {
+    // Check if message contains image
+    final isImage = message.text.startsWith('[IMAGE]');
+    final imageUrl = isImage ? message.text.substring(7) : null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -415,21 +631,66 @@ class _MessagesScreenState extends State<MessagesScreen> {
             child: Column(
               crossAxisAlignment: isSent ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                Container(
-                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.4),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSent ? Colors.blue[700] : Colors.grey[300],
-                    borderRadius: BorderRadius.circular(18),
+                if (isImage && imageUrl != null)
+                  // Image message
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: GestureDetector(
+                      onTap: () => _showFullImage(imageUrl),
+                      child: Image.network(
+                        imageUrl,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            width: 200, height: 200,
+                            color: Colors.grey[300],
+                            child: const Center(child: CircularProgressIndicator()),
+                          );
+                        },
+                        errorBuilder: (context, error, stack) => Container(
+                          width: 200, height: 200,
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.broken_image, size: 40),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  // Text message
+                  Container(
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.4),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSent ? Colors.blue[700] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Text(message.text, style: TextStyle(color: isSent ? Colors.white : Colors.black, fontSize: 15)),
                   ),
-                  child: Text(message.text, style: TextStyle(color: isSent ? Colors.white : Colors.black, fontSize: 15)),
-                ),
                 const SizedBox(height: 4),
                 Text(_formatTime(message.timestamp), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Show full image in dialog
+  void _showFullImage(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: InteractiveViewer(
+            child: Image.network(imageUrl),
+          ),
+        ),
       ),
     );
   }

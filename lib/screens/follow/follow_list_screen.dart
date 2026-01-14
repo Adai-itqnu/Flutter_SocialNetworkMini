@@ -53,7 +53,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
       final users = <UserModel>[];
       for (final uid in userIds) {
         final user = await _firestoreService.getUser(uid);
-        if (user != null) {
+        // Filter out admin users
+        if (user != null && user.role != 'admin') {
           users.add(user);
           
           // Check if current user follows this user
