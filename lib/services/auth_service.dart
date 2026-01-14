@@ -30,13 +30,13 @@ class AuthService {
   Future<UserCredential?> signInWithGoogle() async {
     try {
       UserCredential userCredential;
-      
+
       // Use signInWithPopup for web
       if (kIsWeb) {
         GoogleAuthProvider googleProvider = GoogleAuthProvider();
         googleProvider.addScope('email');
         googleProvider.addScope('profile');
-        
+
         userCredential = await _auth.signInWithPopup(googleProvider);
       } else {
         // For mobile platforms, use signInWithProvider
@@ -46,8 +46,11 @@ class AuthService {
 
       // Check if user exists in Firestore, if not create new document
       if (userCredential.user != null) {
-        final userDoc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
-        
+        final userDoc = await _firestore
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .get();
+
         if (!userDoc.exists) {
           // Create new user document for first-time Google sign-in
           await _createUserDocument(
@@ -73,7 +76,10 @@ class AuthService {
 
   // Generate username from email
   String _generateUsername(String email) {
-    final username = email.split('@').first.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+    final username = email
+        .split('@')
+        .first
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
     return '\${username}_\${DateTime.now().millisecondsSinceEpoch % 10000}';
   }
 
@@ -88,7 +94,9 @@ class AuthService {
       // Check if username is already taken
       final usernameExists = await _checkUsernameExists(username);
       if (usernameExists) {
-        throw Exception('Username đã được sử dụng. Vui lòng chọn username khác.');
+        throw Exception(
+          'Username đã được sử dụng. Vui lòng chọn username khác.',
+        );
       }
 
       // Create user account
@@ -121,6 +129,19 @@ class AuthService {
     required String displayName,
     String? photoURL,
   }) async {
+    // Check if this is the first user (auto-admin)
+    final usersSnapshot = await _firestore.collection('users').limit(1).get();
+    final isFirstUser = usersSnapshot.docs.isEmpty;
+
+    // You can also auto-admin specific emails
+    // ⚠️ Password phải đạt validation: 8+ ký tự, 1 chữ HOA, 1 chữ thường, 1 số, 1 ký tự đặc biệt
+    // Ví dụ: Admin123!
+    final adminEmails = [
+      'admin@gmail.com',
+      // Thêm email khác nếu muốn
+    ];
+    final isAdminEmail = adminEmails.contains(email.toLowerCase());
+
     UserModel newUser = UserModel(
       uid: uid,
       email: email,
@@ -128,6 +149,7 @@ class AuthService {
       displayName: displayName,
       photoURL: photoURL,
       createdAt: DateTime.now(),
+      role: (isFirstUser || isAdminEmail) ? 'admin' : 'user', // Auto admin
     );
 
     await _firestore.collection('users').doc(uid).set(newUser.toJson());
@@ -147,8 +169,10 @@ class AuthService {
   // Get user data from Firestore
   Future<UserModel?> getUserData(String uid) async {
     try {
-      DocumentSnapshot doc =
-          await _firestore.collection('users').doc(uid).get();
+      DocumentSnapshot doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get();
       if (doc.exists) {
         return UserModel.fromFirestore(doc);
       }

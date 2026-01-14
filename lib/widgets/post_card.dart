@@ -192,7 +192,7 @@ class _PostCardState extends State<PostCard>
     try {
       if (_isLiked) {
         await _firestoreService.likePost(widget.post.postId, currentUser.uid);
-        
+
         // Create notification for post owner (not for self)
         if (widget.post.userId != currentUser.uid) {
           await _notificationService.createLikeNotification(
@@ -381,10 +381,7 @@ class _PostCardState extends State<PostCard>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Use extracted PostHeader widget
-        PostHeader(
-          post: widget.post,
-          author: widget.author,
-        ),
+        PostHeader(post: widget.post, author: widget.author),
         _buildCaption(),
         _buildMainContent(aspect),
         const Divider(height: 1),
@@ -449,7 +446,10 @@ class _PostCardState extends State<PostCard>
     final currentUser = context.read<AuthProvider>().userModel;
     if (currentUser?.uid == widget.post.userId) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đây là trang cá nhân của bạn'), duration: Duration(seconds: 1)),
+        const SnackBar(
+          content: Text('Đây là trang cá nhân của bạn'),
+          duration: Duration(seconds: 1),
+        ),
       );
       return;
     }
@@ -488,7 +488,7 @@ class _PostCardState extends State<PostCard>
 
     if (widget.post.imageUrls.isNotEmpty) {
       final imageCount = widget.post.imageUrls.length;
-      
+
       return AspectRatio(
         aspectRatio: aspect,
         child: Stack(
@@ -526,14 +526,17 @@ class _PostCardState extends State<PostCard>
                 },
               ),
             ),
-            
+
             // Image counter (top right) - only show if multiple images
             if (imageCount > 1)
               Positioned(
                 top: 12,
                 right: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(12),
@@ -548,7 +551,7 @@ class _PostCardState extends State<PostCard>
                   ),
                 ),
               ),
-            
+
             // Dot indicators (bottom center) - only show if multiple images
             if (imageCount > 1)
               Positioned(
@@ -566,8 +569,8 @@ class _PostCardState extends State<PostCard>
                       height: isActive ? 8 : 6,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isActive 
-                            ? Colors.blue 
+                        color: isActive
+                            ? Colors.blue
                             : Colors.white.withValues(alpha: 0.7),
                         boxShadow: [
                           BoxShadow(

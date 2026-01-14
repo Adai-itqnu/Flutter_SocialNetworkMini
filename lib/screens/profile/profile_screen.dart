@@ -11,7 +11,10 @@ import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/post_card.dart';
 import '../../widgets/avatar_picker_dialog.dart';
+
 import 'edit_profile_screen.dart';
+import '../../providers/post_provider.dart';
+import 'dart:async';
 import 'saved_posts_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -24,9 +27,11 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   List<PostModel> _originalPosts = []; // Bài đăng gốc
-  List<PostModel> _sharedPosts = [];   // Bài đăng lại
+  List<PostModel> _sharedPosts = []; // Bài đăng lại
   Map<String, PostModel> _sharedPostsData = {}; // Cache bài gốc của bài share
   bool _isLoadingPosts = true;
+  StreamSubscription? _postsSubscription;
+  PostProvider? _postProvider;
 
   @override
   void initState() {
@@ -34,7 +39,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserData();
       _loadUserPosts();
+      _postProvider = context.read<PostProvider>();
+      _postProvider?.addListener(_onPostProviderChange);
     });
+  }
+
+  @override
+  void dispose() {
+    _postsSubscription?.cancel();
+    _postProvider?.removeListener(_onPostProviderChange);
+    super.dispose();
+  }
+
+  void _onPostProviderChange() {
+    if (!mounted || _postProvider == null) return;
+
+    final deletedId = _postProvider!.lastDeletedPostId;
+    if (deletedId != null) {
+      bool changed = false;
+      if (_originalPosts.any((p) => p.postId == deletedId)) {
+        _originalPosts.removeWhere((p) => p.postId == deletedId);
+        changed = true;
+      }
+      if (_sharedPosts.any((p) => p.postId == deletedId)) {
+        _sharedPosts.removeWhere((p) => p.postId == deletedId);
+        changed = true;
+      }
+
+      if (changed) {
+        setState(() {});
+      }
+    }
   }
 
   void _loadUserData() {
@@ -50,23 +85,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final userId = authProvider.firebaseUser!.uid;
-      
+
       // Listen to user posts stream
-      _firestoreService.getUserPosts(userId).listen((posts) async {
+      _postsSubscription = _firestoreService.getUserPosts(userId).listen((
+        posts,
+      ) async {
         if (mounted) {
           final original = posts.where((p) => p.sharedPostId == null).toList();
           final shared = posts.where((p) => p.sharedPostId != null).toList();
-          
+
           // Load original posts for shared posts
           for (var post in shared) {
-            if (post.sharedPostId != null && !_sharedPostsData.containsKey(post.sharedPostId)) {
-              final originalPost = await _firestoreService.getPost(post.sharedPostId!);
+            if (post.sharedPostId != null &&
+                !_sharedPostsData.containsKey(post.sharedPostId)) {
+              final originalPost = await _firestoreService.getPost(
+                post.sharedPostId!,
+              );
               if (originalPost != null) {
                 _sharedPostsData[post.sharedPostId!] = originalPost;
               }
             }
           }
-          
+
           setState(() {
             _originalPosts = original;
             _sharedPosts = shared;
@@ -86,14 +126,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Consumer<UserProvider>(
       builder: (context, userProvider, _) {
         final user = userProvider.currentUser;
-        
+
         if (userProvider.isLoading || user == null) {
           return Scaffold(
             backgroundColor: Colors.white,
             appBar: AppBar(
               backgroundColor: Colors.white,
               elevation: 0,
-              title: const Text('Đang tải...', style: TextStyle(color: Colors.black)),
+              title: const Text(
+                'Đang tải...',
+                style: TextStyle(color: Colors.black),
+              ),
             ),
             body: const Center(child: CircularProgressIndicator()),
           );
@@ -117,7 +160,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black, size: 18),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Colors.black,
+                    size: 18,
+                  ),
                 ],
               ),
               actions: [
@@ -125,7 +172,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: _showCreatePostOptions,
                   icon: const Icon(Icons.add_box_outlined, color: Colors.black),
                 ),
-                IconButton(onPressed: _showMenuOptions, icon: const Icon(Icons.menu, color: Colors.black)),
+                IconButton(
+                  onPressed: _showMenuOptions,
+                  icon: const Icon(Icons.menu, color: Colors.black),
+                ),
               ],
             ),
             body: NestedScrollView(
@@ -191,7 +241,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildPostsGrid(List<PostModel> posts, UserModel user, {required bool isSharedTab}) {
+  Widget _buildPostsGrid(
+    List<PostModel> posts,
+    UserModel user, {
+    required bool isSharedTab,
+  }) {
     if (_isLoadingPosts) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -202,8 +256,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isSharedTab ? Icons.repeat : Icons.photo_library_outlined, 
-              size: 64, 
+              isSharedTab ? Icons.repeat : Icons.photo_library_outlined,
+              size: 64,
               color: Colors.grey[400],
             ),
             const SizedBox(height: 16),
@@ -226,7 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       itemCount: posts.length,
       itemBuilder: (context, index) {
         final post = posts[index];
-        
+
         // Lấy ảnh: nếu là bài share thì lấy ảnh từ bài gốc
         String? imageUrl;
         if (isSharedTab && post.sharedPostId != null) {
@@ -237,7 +291,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } else if (post.imageUrls.isNotEmpty) {
           imageUrl = post.imageUrls[0];
         }
-        
+
         return GestureDetector(
           onTap: () => _openPostDetail(post, user),
           child: Stack(
@@ -313,24 +367,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
         minChildSize: 0.5,
         maxChildSize: 0.95,
         expand: false,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          child: Column(
-            children: [
-              // Drag handle
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        builder: (context, scrollController) => StreamBuilder<PostModel?>(
+          stream: _firestoreService.getPostStream(post.postId),
+          builder: (context, snapshot) {
+            // Nếu snapshot trả về Active mà data null => Bài viết đã bị xóa
+            if (snapshot.connectionState == ConnectionState.active &&
+                (snapshot.data == null)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
+              });
+              return const Center(child: Text("Bài viết không còn tồn tại"));
+            }
+
+            final currentPost = snapshot.data ?? post;
+
+            return SingleChildScrollView(
+              controller: scrollController,
+              child: Column(
+                children: [
+                  // Drag handle
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  // Post card
+                  PostCard(post: currentPost, author: user),
+                ],
               ),
-              // Post card
-              PostCard(post: post, author: user),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -353,7 +425,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = context.read<UserProvider>().currentUser;
     if (user == null) return;
 
-    final shareText = '''
+    final shareText =
+        '''
 🌟 Hãy theo dõi ${user.displayName} trên SNMini!
 
 👤 @${user.username}
@@ -366,9 +439,9 @@ ${user.bio != null && user.bio!.isNotEmpty ? '📝 ${user.bio}' : ''}
   }
 
   void _showCreatePostOptions() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Tạo bài viết mới...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Tạo bài viết mới...')));
   }
 
   void _showMenuOptions() {
@@ -391,14 +464,15 @@ ${user.bio != null && user.bio!.isNotEmpty ? '📝 ${user.bio}' : ''}
               ),
             ),
             const SizedBox(height: 20),
+
             ListTile(
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Cài đặt'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Coming soon...')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Coming soon...')));
               },
             ),
             ListTile(
@@ -414,7 +488,10 @@ ${user.bio != null && user.bio!.isNotEmpty ? '📝 ${user.bio}' : ''}
             ),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Đăng xuất', style: TextStyle(color: Colors.red)),
+              title: const Text(
+                'Đăng xuất',
+                style: TextStyle(color: Colors.red),
+              ),
               onTap: () async {
                 Navigator.pop(context);
                 await context.read<AuthProvider>().signOut();
@@ -464,11 +541,16 @@ class _ProfileHeader extends StatelessWidget {
                     CircleAvatar(
                       radius: 44,
                       backgroundColor: Colors.grey[300],
-                      backgroundImage: user.photoURL != null && user.photoURL!.isNotEmpty
+                      backgroundImage:
+                          user.photoURL != null && user.photoURL!.isNotEmpty
                           ? CachedNetworkImageProvider(user.photoURL!)
                           : null,
                       child: user.photoURL == null || user.photoURL!.isEmpty
-                          ? const Icon(Icons.person, size: 44, color: Colors.white)
+                          ? const Icon(
+                              Icons.person,
+                              size: 44,
+                              color: Colors.white,
+                            )
                           : null,
                     ),
                     Positioned(
@@ -481,7 +563,11 @@ class _ProfileHeader extends StatelessWidget {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
-                        child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -492,9 +578,18 @@ class _ProfileHeader extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _StatItem(count: user.postsCount.toString(), label: 'Bài viết'),
-                    _StatItem(count: user.followersCount.toString(), label: 'Người theo dõi'),
-                    _StatItem(count: user.followingCount.toString(), label: 'Đang theo dõi'),
+                    _StatItem(
+                      count: user.postsCount.toString(),
+                      label: 'Bài viết',
+                    ),
+                    _StatItem(
+                      count: user.followersCount.toString(),
+                      label: 'Người theo dõi',
+                    ),
+                    _StatItem(
+                      count: user.followingCount.toString(),
+                      label: 'Đang theo dõi',
+                    ),
                   ],
                 ),
               ),
@@ -548,10 +643,7 @@ class _StatItem extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey[600], fontSize: 12),
-        ),
+        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
       ],
     );
   }
@@ -606,13 +698,15 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Colors.white,
-      child: tabBar,
-    );
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(color: Colors.white, child: tabBar);
   }
 
   @override
-  bool shouldRebuild(_ProfileTabBarDelegate oldDelegate) => tabBar != oldDelegate.tabBar;
+  bool shouldRebuild(_ProfileTabBarDelegate oldDelegate) =>
+      tabBar != oldDelegate.tabBar;
 }

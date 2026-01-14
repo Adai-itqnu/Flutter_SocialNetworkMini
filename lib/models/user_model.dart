@@ -15,6 +15,7 @@ class UserModel {
   final int followingCount;
   final int postsCount;
   final DateTime createdAt;
+  final String role; // 'user' or 'admin'
 
   UserModel({
     required this.uid,
@@ -31,6 +32,7 @@ class UserModel {
     this.followingCount = 0,
     this.postsCount = 0,
     required this.createdAt,
+    this.role = 'user', // Default role
   });
 
   // Convert UserModel to JSON for Firestore
@@ -50,6 +52,7 @@ class UserModel {
       'followingCount': followingCount,
       'postsCount': postsCount,
       'createdAt': Timestamp.fromDate(createdAt),
+      'role': role,
     };
   }
 
@@ -71,6 +74,7 @@ class UserModel {
       followingCount: data['followingCount'] ?? 0,
       postsCount: data['postsCount'] ?? 0,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      role: data['role'] ?? 'user',
     );
   }
 
@@ -93,6 +97,7 @@ class UserModel {
       createdAt: json['createdAt'] is Timestamp
           ? (json['createdAt'] as Timestamp).toDate()
           : DateTime.parse(json['createdAt']),
+      role: json['role'] ?? 'user',
     );
   }
 
@@ -112,6 +117,7 @@ class UserModel {
     int? followingCount,
     int? postsCount,
     DateTime? createdAt,
+    String? role,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -128,6 +134,7 @@ class UserModel {
       followingCount: followingCount ?? this.followingCount,
       postsCount: postsCount ?? this.postsCount,
       createdAt: createdAt ?? this.createdAt,
+      role: role ?? this.role,
     );
   }
 }
