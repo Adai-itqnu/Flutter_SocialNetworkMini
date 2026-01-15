@@ -5,6 +5,7 @@ import '../../models/message_model.dart';
 import '../../models/user_model.dart';
 import '../../services/chat_service.dart';
 import '../../services/imgbb_service.dart';
+import '../../services/active_chat_service.dart';
 import '../profile/user_profile_screen.dart';
 
 class ChatRoomScreen extends StatefulWidget {
@@ -45,6 +46,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         _chatRoom = widget.chatRoom;
         _isInitializing = false;
       });
+      // Mark as read when opening existing chat room
+      _markAsRead();
       return;
     }
 
@@ -60,6 +63,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           _chatRoom = room;
           _isInitializing = false;
         });
+        // Mark as read when chat room is ready
+        _markAsRead();
       }
     } catch (e) {
       if (mounted) {
@@ -68,8 +73,19 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
+  /// Mark all messages as read for current user and set active chat
+  void _markAsRead() {
+    if (_chatRoom != null) {
+      _chatService.markAsRead(_chatRoom!.chatId, widget.currentUser.uid);
+      // Set this chat as active to suppress notifications
+      ActiveChatService.setActiveChat(_chatRoom!.chatId);
+    }
+  }
+
   @override
   void dispose() {
+    // Clear active chat when leaving
+    ActiveChatService.clearActiveChat();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -214,6 +230,12 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                 }
 
                 final messages = snapshot.data ?? [];
+                
+                // Mark as read whenever we receive new messages while viewing
+                if (messages.isNotEmpty) {
+                  // Use Future.microtask to avoid calling during build
+                  Future.microtask(() => _markAsRead());
+                }
 
                 if (messages.isEmpty) {
                   return Center(

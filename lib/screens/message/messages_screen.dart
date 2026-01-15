@@ -199,6 +199,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   /// Mobile chat list - tap to navigate to chat room
   Widget _buildMobileChatList() {
+    final authProvider = context.read<AuthProvider>();
+    final currentUserId = authProvider.userModel?.uid;
+
     return Column(
       children: [
         // Search Bar
@@ -216,110 +219,140 @@ class _MessagesScreenState extends State<MessagesScreen> {
             ),
           ),
         ),
-        // Chat List
+        // Chat List - now using ChatRooms directly (no follow requirement)
         Expanded(
-          child: Consumer<FollowProvider>(
-            builder: (context, followProvider, _) {
-              final followingUsers = followProvider.following;
-              final authProvider = context.read<AuthProvider>();
-              final currentUserId = authProvider.userModel?.uid;
-
-              if (followProvider.isLoading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (followingUsers.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text('Chưa follow ai', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[700])),
-                      const SizedBox(height: 8),
-                      Text('Hãy follow bạn bè để bắt đầu chat', style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center),
-                    ],
-                  ),
-                );
-              }
-
-              // Use StreamBuilder for chat rooms
-              return StreamBuilder<List<ChatRoomModel>>(
-                stream: currentUserId != null ? _chatService.getChatRooms(currentUserId) : null,
-                builder: (context, chatRoomsSnapshot) {
-                  final Map<String, DateTime?> lastMessageTimes = {};
-                  if (chatRoomsSnapshot.hasData) {
-                    for (final room in chatRoomsSnapshot.data!) {
-                      final otherUserId = room.participants.firstWhere(
-                        (id) => id != currentUserId,
-                        orElse: () => '',
-                      );
-                      if (otherUserId.isNotEmpty) {
-                        lastMessageTimes[otherUserId] = room.lastMessageTime;
-                      }
+          child: currentUserId == null
+              ? const Center(child: Text('Vui lòng đăng nhập'))
+              : StreamBuilder<List<ChatRoomModel>>(
+                  stream: _chatService.getChatRooms(currentUserId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
                     }
-                  }
 
-                  // Sort by last message time
-                  final sortedUsers = List<UserModel>.from(followingUsers);
-                  sortedUsers.sort((a, b) {
-                    final timeA = lastMessageTimes[a.uid];
-                    final timeB = lastMessageTimes[b.uid];
-                    if (timeA == null && timeB == null) return 0;
-                    if (timeA == null) return 1;
-                    if (timeB == null) return -1;
-                    return timeB.compareTo(timeA);
-                  });
+                    final chatRooms = snapshot.data ?? [];
+                    
+                    if (chatRooms.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+                            const SizedBox(height: 16),
+                            Text('Chưa có tin nhắn', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                            const SizedBox(height: 8),
+                            Text('Nhắn tin với ai đó để bắt đầu', style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center),
+                          ],
+                        ),
+                      );
+                    }
 
-                  return ListView.builder(
-                    itemCount: sortedUsers.length,
-                    itemBuilder: (context, index) {
-                      final user = sortedUsers[index];
-                      
-                      return ListTile(
-                        leading: CircleAvatar(
-                          radius: 28,
-                          backgroundColor: Colors.blue[700],
-                          backgroundImage: user.photoURL != null && user.photoURL!.isNotEmpty 
-                              ? NetworkImage(user.photoURL!) 
-                              : null,
-                          child: user.photoURL == null || user.photoURL!.isEmpty
-                              ? Text(
-                                  user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : 'U',
-                                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    // Sort by last message time (newest first)
+                    final sortedRooms = List<ChatRoomModel>.from(chatRooms)
+                      ..sort((a, b) {
+                        final timeA = a.lastMessageTime;
+                        final timeB = b.lastMessageTime;
+                        if (timeA == null && timeB == null) return 0;
+                        if (timeA == null) return 1;
+                        if (timeB == null) return -1;
+                        return timeB.compareTo(timeA);
+                      });
+
+                    return ListView.builder(
+                      itemCount: sortedRooms.length,
+                      itemBuilder: (context, index) {
+                        final room = sortedRooms[index];
+                        final otherParticipant = room.getOtherParticipant(currentUserId);
+                        final unreadCount = room.getUnreadCountFor(currentUserId);
+                        final hasUnread = unreadCount > 0;
+                        
+                        if (otherParticipant == null) return const SizedBox.shrink();
+                        
+                        return ListTile(
+                          leading: CircleAvatar(
+                            radius: 28,
+                            backgroundColor: Colors.blue[700],
+                            backgroundImage: otherParticipant.photoURL != null && otherParticipant.photoURL!.isNotEmpty 
+                                ? NetworkImage(otherParticipant.photoURL!) 
+                                : null,
+                            child: otherParticipant.photoURL == null || otherParticipant.photoURL!.isEmpty
+                                ? Text(
+                                    otherParticipant.displayName.isNotEmpty ? otherParticipant.displayName[0].toUpperCase() : 'U',
+                                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                                  )
+                                : null,
+                          ),
+                          title: Text(
+                            otherParticipant.displayName,
+                            style: TextStyle(
+                              fontWeight: hasUnread ? FontWeight.bold : FontWeight.w600,
+                              color: hasUnread ? Colors.black : Colors.grey[800],
+                            ),
+                          ),
+                          subtitle: Text(
+                            room.lastMessage ?? 'Bắt đầu trò chuyện',
+                            style: TextStyle(
+                              fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
+                              color: hasUnread ? Colors.black87 : Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: hasUnread
+                              ? Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[700],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    unreadCount > 99 ? '99+' : unreadCount.toString(),
+                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
                                 )
                               : null,
-                        ),
-                        title: Text(
-                          user.displayName,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: _buildLastMessage(user),
-                        onTap: () => _openChatRoom(user),
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
+                          onTap: () => _openChatRoomFromRoom(room, currentUserId),
+                        );
+                      },
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
 
-  /// Open chat room screen for mobile
-  Future<void> _openChatRoom(UserModel user) async {
+  /// Open chat room from ChatRoomModel
+  Future<void> _openChatRoomFromRoom(ChatRoomModel room, String currentUserId) async {
     final authProvider = context.read<AuthProvider>();
     final currentUser = authProvider.userModel;
     if (currentUser == null) return;
 
-    // Navigate to chat room screen
+    // Mark as read when opening
+    await _chatService.markAsRead(room.chatId, currentUserId);
+
+    // Get other user info
+    final otherUserId = room.participants.firstWhere((id) => id != currentUserId, orElse: () => '');
+    final otherParticipant = room.participantDetails[otherUserId];
+    
+    if (otherParticipant == null) return;
+
+    // Create UserModel from ParticipantInfo for ChatRoomScreen
+    final otherUser = UserModel(
+      uid: otherUserId,
+      email: '',
+      username: otherParticipant.username,
+      displayName: otherParticipant.displayName,
+      photoURL: otherParticipant.photoURL,
+      createdAt: DateTime.now(),
+    );
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ChatRoomScreen(
-          otherUser: user,
+          chatRoom: room,
+          otherUser: otherUser,
           currentUser: currentUser,
         ),
       ),
@@ -327,6 +360,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _buildChatList() {
+    final authProvider = context.read<AuthProvider>();
+    final currentUserId = authProvider.userModel?.uid;
+
     return Container(
       width: 360,
       color: Colors.white,
@@ -368,108 +404,158 @@ class _MessagesScreenState extends State<MessagesScreen> {
               ),
             ),
           ),
-          // Chat List
+          // Chat List - using ChatRooms directly
           Expanded(
-            child: Consumer<FollowProvider>(
-              builder: (context, followProvider, _) {
-                final followingUsers = followProvider.following;
-                final authProvider = context.read<AuthProvider>();
-                final currentUserId = authProvider.userModel?.uid;
-
-                if (followProvider.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (followingUsers.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
-                        const SizedBox(height: 16),
-                        Text('Chưa follow ai', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[700])),
-                        const SizedBox(height: 8),
-                        Text('Hãy follow bạn bè để bắt đầu chat', style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center),
-                      ],
-                    ),
-                  );
-                }
-
-                // Use StreamBuilder to listen to chat rooms for sorting
-                return StreamBuilder<List<ChatRoomModel>>(
-                  stream: currentUserId != null ? _chatService.getChatRooms(currentUserId) : null,
-                  builder: (context, chatRoomsSnapshot) {
-                    // Create map of userId -> lastMessageTime
-                    final Map<String, DateTime?> lastMessageTimes = {};
-                    if (chatRoomsSnapshot.hasData) {
-                      for (final room in chatRoomsSnapshot.data!) {
-                        final otherUserId = room.participants.firstWhere(
-                          (id) => id != currentUserId,
-                          orElse: () => '',
-                        );
-                        if (otherUserId.isNotEmpty) {
-                          lastMessageTimes[otherUserId] = room.lastMessageTime;
-                        }
+            child: currentUserId == null
+                ? const Center(child: Text('Vui lòng đăng nhập'))
+                : StreamBuilder<List<ChatRoomModel>>(
+                    stream: _chatService.getChatRooms(currentUserId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
                       }
-                    }
 
-                    // Sort following users by lastMessageTime
-                    final sortedUsers = List<UserModel>.from(followingUsers);
-                    sortedUsers.sort((a, b) {
-                      final timeA = lastMessageTimes[a.uid];
-                      final timeB = lastMessageTimes[b.uid];
-                      if (timeA == null && timeB == null) return 0;
-                      if (timeA == null) return 1;
-                      if (timeB == null) return -1;
-                      return timeB.compareTo(timeA); // Newest first
-                    });
-
-                    return ListView.builder(
-                      itemCount: sortedUsers.length,
-                      itemBuilder: (context, index) {
-                        final user = sortedUsers[index];
-                        final isSelected = _selectedUser?.uid == user.uid;
-                        
-                        return InkWell(
-                          onTap: () => _selectUser(index, user),
-                          child: Container(
-                            color: isSelected ? Colors.grey[200] : Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 28,
-                                  backgroundColor: Colors.blue[700],
-                                  backgroundImage: user.photoURL != null && user.photoURL!.isNotEmpty ? NetworkImage(user.photoURL!) : null,
-                                  child: user.photoURL == null || user.photoURL!.isEmpty
-                                      ? Text(user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))
-                                      : null,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(user.displayName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                      const SizedBox(height: 4),
-                                      _buildLastMessage(user),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                      final chatRooms = snapshot.data ?? [];
+                      
+                      if (chatRooms.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+                              const SizedBox(height: 16),
+                              Text('Chưa có tin nhắn', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                              const SizedBox(height: 8),
+                              Text('Nhắn tin với ai đó để bắt đầu', style: TextStyle(fontSize: 14, color: Colors.grey[600]), textAlign: TextAlign.center),
+                            ],
                           ),
                         );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
+                      }
+
+                      // Sort by last message time (newest first)
+                      final sortedRooms = List<ChatRoomModel>.from(chatRooms)
+                        ..sort((a, b) {
+                          final timeA = a.lastMessageTime;
+                          final timeB = b.lastMessageTime;
+                          if (timeA == null && timeB == null) return 0;
+                          if (timeA == null) return 1;
+                          if (timeB == null) return -1;
+                          return timeB.compareTo(timeA);
+                        });
+
+                      return ListView.builder(
+                        itemCount: sortedRooms.length,
+                        itemBuilder: (context, index) {
+                          final room = sortedRooms[index];
+                          final otherParticipant = room.getOtherParticipant(currentUserId);
+                          final unreadCount = room.getUnreadCountFor(currentUserId);
+                          final hasUnread = unreadCount > 0;
+                          final otherUserId = room.participants.firstWhere((id) => id != currentUserId, orElse: () => '');
+                          final isSelected = _selectedUser?.uid == otherUserId;
+                          
+                          if (otherParticipant == null) return const SizedBox.shrink();
+                          
+                          return InkWell(
+                            onTap: () => _selectUserFromRoom(room, currentUserId),
+                            child: Container(
+                              color: isSelected ? Colors.grey[200] : Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 28,
+                                    backgroundColor: Colors.blue[700],
+                                    backgroundImage: otherParticipant.photoURL != null && otherParticipant.photoURL!.isNotEmpty 
+                                        ? NetworkImage(otherParticipant.photoURL!) 
+                                        : null,
+                                    child: otherParticipant.photoURL == null || otherParticipant.photoURL!.isEmpty
+                                        ? Text(
+                                            otherParticipant.displayName.isNotEmpty ? otherParticipant.displayName[0].toUpperCase() : 'U',
+                                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          otherParticipant.displayName,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: hasUnread ? FontWeight.bold : FontWeight.w500,
+                                            color: hasUnread ? Colors.black : Colors.grey[800],
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          room.lastMessage ?? 'Bắt đầu trò chuyện',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
+                                            color: hasUnread ? Colors.black87 : Colors.grey[600],
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (hasUnread)
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue[700],
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        unreadCount > 99 ? '99+' : unreadCount.toString(),
+                                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
     );
+  }
+
+  /// Select user from ChatRoomModel for desktop view
+  Future<void> _selectUserFromRoom(ChatRoomModel room, String currentUserId) async {
+    // Mark as read
+    await _chatService.markAsRead(room.chatId, currentUserId);
+
+    // Get other user info
+    final otherUserId = room.participants.firstWhere((id) => id != currentUserId, orElse: () => '');
+    final otherParticipant = room.participantDetails[otherUserId];
+    
+    if (otherParticipant == null) return;
+
+    // Create UserModel from ParticipantInfo
+    final otherUser = UserModel(
+      uid: otherUserId,
+      email: '',
+      username: otherParticipant.username,
+      displayName: otherParticipant.displayName,
+      photoURL: otherParticipant.photoURL,
+      createdAt: DateTime.now(),
+    );
+
+    setState(() {
+      _selectedUser = otherUser;
+      _currentChatRoom = room;
+      _isLoadingChat = false;
+    });
   }
 
   Widget _buildChatConversation() {

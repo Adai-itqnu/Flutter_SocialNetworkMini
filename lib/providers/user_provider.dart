@@ -3,11 +3,9 @@ import 'package:image_picker/image_picker.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../services/imgbb_service.dart';
-import '../services/notification_service.dart';
 
 class UserProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
-  final NotificationService _notificationService = NotificationService();
 
   UserModel? _currentUser;
   bool _isLoading = false;
@@ -44,10 +42,10 @@ class UserProvider with ChangeNotifier {
 
     try {
       await _firestoreService.updateUser(uid, data);
-      
+
       // Reload user data
       await loadUser(uid);
-      
+
       _isLoading = false;
       notifyListeners();
       return true;
@@ -77,10 +75,10 @@ class UserProvider with ChangeNotifier {
       }
 
       await _firestoreService.updateUser(uid, data);
-      
+
       // Reload user data
       await loadUser(uid);
-      
+
       _isSaving = false;
       notifyListeners();
       return true;

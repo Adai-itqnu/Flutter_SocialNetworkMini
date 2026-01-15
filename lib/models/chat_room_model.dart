@@ -37,6 +37,7 @@ class ChatRoomModel {
   final String? lastMessageSenderId;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final Map<String, int> unreadCount; // Track unread messages per user
 
   ChatRoomModel({
     required this.chatId,
@@ -47,6 +48,7 @@ class ChatRoomModel {
     this.lastMessageSenderId,
     required this.createdAt,
     required this.updatedAt,
+    this.unreadCount = const {},
   });
 
   Map<String, dynamic> toJson() {
@@ -63,6 +65,7 @@ class ChatRoomModel {
       'lastMessageSenderId': lastMessageSenderId,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'unreadCount': unreadCount,
     };
   }
 
@@ -77,6 +80,12 @@ class ChatRoomModel {
       ),
     );
 
+    // Parse unreadCount map
+    final unreadCountData = data['unreadCount'] as Map<String, dynamic>? ?? {};
+    final unreadCount = unreadCountData.map(
+      (key, value) => MapEntry(key, (value as num?)?.toInt() ?? 0),
+    );
+
     return ChatRoomModel(
       chatId: doc.id,
       participants: List<String>.from(data['participants'] ?? []),
@@ -88,7 +97,13 @@ class ChatRoomModel {
       lastMessageSenderId: data['lastMessageSenderId'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      unreadCount: unreadCount,
     );
+  }
+
+  /// Get unread count for a specific user
+  int getUnreadCountFor(String userId) {
+    return unreadCount[userId] ?? 0;
   }
 
   /// Get other participant info (not current user)

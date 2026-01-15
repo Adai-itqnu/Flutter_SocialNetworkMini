@@ -38,23 +38,28 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
       final authProvider = context.read<AuthProvider>();
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
       
       final success = await authProvider.signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
 
+      // Get error message immediately after signIn
+      final errorMessage = authProvider.error;
+
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          scaffoldMessenger.showSnackBar(
             const SnackBar(content: Text('Đăng nhập thành công!')),
           );
           // Navigation will be handled automatically by main.dart
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
+          scaffoldMessenger.showSnackBar(
             SnackBar(
-              content: Text(authProvider.error ?? 'Đăng nhập thất bại'),
+              content: Text(errorMessage ?? 'Đăng nhập thất bại'),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
             ),
           );
         }

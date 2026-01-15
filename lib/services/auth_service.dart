@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/user_model.dart';
 
+/// AuthService - Xử lý xác thực người dùng (Mobile-only)
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -26,23 +26,14 @@ class AuthService {
     }
   }
 
-  // Sign in with Google using Firebase Auth directly (works better on web)
+  // Sign in with Google (Mobile only - uses signInWithProvider)
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      UserCredential userCredential;
+      GoogleAuthProvider googleProvider = GoogleAuthProvider();
+      googleProvider.addScope('email');
+      googleProvider.addScope('profile');
 
-      // Use signInWithPopup for web
-      if (kIsWeb) {
-        GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        googleProvider.addScope('email');
-        googleProvider.addScope('profile');
-
-        userCredential = await _auth.signInWithPopup(googleProvider);
-      } else {
-        // For mobile platforms, use signInWithProvider
-        GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        userCredential = await _auth.signInWithProvider(googleProvider);
-      }
+      final userCredential = await _auth.signInWithProvider(googleProvider);
 
       // Check if user exists in Firestore, if not create new document
       if (userCredential.user != null) {
@@ -65,7 +56,7 @@ class AuthService {
 
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'popup-closed-by-user') {
+      if (e.code == 'sign_in_canceled') {
         return null; // User cancelled
       }
       throw Exception('Đăng nhập Google thất bại: ${e.message}');
@@ -80,7 +71,7 @@ class AuthService {
         .split('@')
         .first
         .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-    return '\${username}_\${DateTime.now().millisecondsSinceEpoch % 10000}';
+    return '${username}_${DateTime.now().millisecondsSinceEpoch % 10000}';
   }
 
   // Sign up with email and password

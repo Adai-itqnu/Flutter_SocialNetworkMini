@@ -38,8 +38,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Lỗi tải dữ liệu: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi tải dữ liệu: $e')));
     }
   }
 
@@ -82,12 +83,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       title: const Text('Bảng điều khiển Admin'),
       backgroundColor: const Color(0xFF006CFF),
       foregroundColor: Colors.white,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: _logout,
-        )
-      ],
+      actions: [IconButton(icon: const Icon(Icons.logout), onPressed: _logout)],
     );
   }
 
@@ -98,8 +94,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: const Text('Đăng xuất'),
         content: const Text('Bạn có chắc muốn đăng xuất?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Đăng xuất')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Đăng xuất'),
+          ),
         ],
       ),
     );
@@ -120,9 +122,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
       children: [
-        _StatCard(title: 'Người dùng', value: _stats!['users'], icon: Icons.people, color: Colors.blue),
-        _StatCard(title: 'Bài viết', value: _stats!['posts'], icon: Icons.article, color: Colors.green),
-        _StatCard(title: 'Báo cáo', value: _stats!['pendingReports'], icon: Icons.flag, color: Colors.orange),
+        _StatCard(
+          title: 'Người dùng',
+          value: _stats!['users'],
+          icon: Icons.people,
+          color: Colors.blue,
+        ),
+        _StatCard(
+          title: 'Bài viết',
+          value: _stats!['posts'],
+          icon: Icons.article,
+          color: Colors.green,
+        ),
+        _StatCard(
+          title: 'Báo cáo',
+          value: _stats!['pendingReports'],
+          icon: Icons.flag,
+          color: Colors.orange,
+        ),
       ],
     );
   }
@@ -135,7 +152,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           subtitle: 'Xem và khóa tài khoản',
           icon: Icons.people,
           color: Colors.blue,
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminUsersScreen())),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminUsersScreen()),
+          ),
         ),
         const SizedBox(height: 12),
         _MenuCard(
@@ -143,7 +163,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           subtitle: 'Xóa bài vi phạm',
           icon: Icons.article,
           color: Colors.green,
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminPostsScreen())),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminPostsScreen()),
+          ),
         ),
         const SizedBox(height: 12),
         _MenuCard(
@@ -151,14 +174,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           subtitle: 'Xử lý báo cáo',
           icon: Icons.flag,
           color: Colors.orange,
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminReportsScreen())),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminReportsScreen()),
+          ),
         ),
       ],
     );
   }
 
   Widget _sectionTitle(String text) {
-    return Text(text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold));
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+    );
   }
 }
 
@@ -173,7 +202,9 @@ class _AdminHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF006CFF), Color(0xFF0050C7)]),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF006CFF), Color(0xFF0050C7)],
+        ),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -181,13 +212,30 @@ class _AdminHeader extends StatelessWidget {
           const CircleAvatar(
             radius: 30,
             backgroundColor: Colors.white24,
-            child: Icon(Icons.admin_panel_settings, color: Colors.white, size: 30),
+            child: Icon(
+              Icons.admin_panel_settings,
+              color: Colors.white,
+              size: 30,
+            ),
           ),
           const SizedBox(width: 16),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const Text('Quản trị viên', style: TextStyle(color: Colors.white70)),
-          ])
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Text(
+                'Quản trị viên',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -200,21 +248,40 @@ class _StatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
 
-  const _StatCard({required this.title, required this.value, required this.icon, required this.color});
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [
-        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8),
-      ]),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, size: 36, color: color),
-        const SizedBox(height: 8),
-        Text('${value ?? 0}', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color)),
-        Text(title, style: const TextStyle(color: Colors.grey)),
-      ]),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 36, color: color),
+          const SizedBox(height: 8),
+          Text(
+            '${value ?? 0}',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(title, style: const TextStyle(color: Colors.grey)),
+        ],
+      ),
     );
   }
 }
@@ -226,7 +293,13 @@ class _MenuCard extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _MenuCard({required this.title, required this.subtitle, required this.icon, required this.color, required this.onTap});
+  const _MenuCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -235,22 +308,37 @@ class _MenuCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.white, border: Border.all(color: Colors.grey.shade200)),
-        child: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(subtitle, style: const TextStyle(color: Colors.grey)),
-            ]),
-          ),
-          const Icon(Icons.chevron_right)
-        ]),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(subtitle, style: const TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
       ),
     );
   }
@@ -263,11 +351,17 @@ class _NoPermissionView extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.lock, size: 64, color: Colors.grey),
-          SizedBox(height: 12),
-          Text('Bạn không có quyền truy cập', style: TextStyle(fontSize: 16, color: Colors.grey)),
-        ]),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock, size: 64, color: Colors.grey),
+            SizedBox(height: 12),
+            Text(
+              'Bạn không có quyền truy cập',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ],
+        ),
       ),
     );
   }

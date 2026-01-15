@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'app_logger.dart';
 
 /// Utility class to manage admin roles
 /// Dùng để cập nhật role của users đã tồn tại
@@ -24,9 +25,9 @@ class AdminUtility {
         'role': 'admin',
       });
 
-      print('✅ Successfully set admin role for: $email');
+      AppLogger.info('✅ Successfully set admin role for: $email');
     } catch (e) {
-      print('❌ Error setting admin role: $e');
+      AppLogger.error('❌ Error setting admin role', error: e);
       rethrow;
     }
   }
@@ -43,9 +44,9 @@ class AdminUtility {
 
       await _firestore.collection('users').doc(uid).update({'role': 'admin'});
 
-      print('✅ Successfully set admin role for UID: $uid');
+      AppLogger.info('✅ Successfully set admin role for UID: $uid');
     } catch (e) {
-      print('❌ Error setting admin role: $e');
+      AppLogger.error('❌ Error setting admin role', error: e);
       rethrow;
     }
   }
@@ -69,9 +70,9 @@ class AdminUtility {
         'role': 'user',
       });
 
-      print('✅ Successfully removed admin role for: $email');
+      AppLogger.info('✅ Successfully removed admin role for: $email');
     } catch (e) {
-      print('❌ Error removing admin role: $e');
+      AppLogger.error('❌ Error removing admin role', error: e);
       rethrow;
     }
   }
@@ -81,9 +82,9 @@ class AdminUtility {
     try {
       await _firestore.collection('users').doc(uid).update({'role': 'user'});
 
-      print('✅ Successfully removed admin role for UID: $uid');
+      AppLogger.info('✅ Successfully removed admin role for UID: $uid');
     } catch (e) {
-      print('❌ Error removing admin role: $e');
+      AppLogger.error('❌ Error removing admin role', error: e);
       rethrow;
     }
   }
@@ -106,7 +107,7 @@ class AdminUtility {
         };
       }).toList();
     } catch (e) {
-      print('❌ Error getting admins: $e');
+      AppLogger.error('❌ Error getting admins', error: e);
       rethrow;
     }
   }
@@ -128,9 +129,9 @@ class AdminUtility {
         }
       }
 
-      print('✅ Migration complete. Updated $updated users.');
+      AppLogger.info('✅ Migration complete. Updated $updated users.');
     } catch (e) {
-      print('❌ Error during migration: $e');
+      AppLogger.error('❌ Error during migration', error: e);
       rethrow;
     }
   }

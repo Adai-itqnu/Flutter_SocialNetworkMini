@@ -14,16 +14,39 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
+import 'services/fcm_service.dart';
+import 'utils/app_logger.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
+  // Load environment variables (optional - won't crash if missing)
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    AppLogger.warn('[Main] .env load error: $e');
+  }
 
-  // Initialize Firebase with options
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Initialize Firebase (handle if already initialized)
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } catch (e) {
+    AppLogger.warn(
+      '[Main] Firebase init error (may already be initialized): $e',
+    );
+  }
+
+  // FCM initialization
+  try {
+    FCMService.initialize();
+  } catch (e) {
+    AppLogger.warn('[Main] FCM init error: $e');
+  }
 
   // Initialize common locales
   timeago.setLocaleMessages('vi', timeago.ViMessages());
@@ -135,8 +158,15 @@ class SocialMockApp extends StatelessWidget {
             if (authProvider.isAuthenticated) {
               final currentUser = authProvider.userModel;
 
+              // Still loading user data from Firestore
+              if (currentUser == null) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+
               // Check if admin
-              if (currentUser != null && currentUser.role == 'admin') {
+              if (currentUser.role == 'admin') {
                 // Admin: NO need to initialize user streams
                 return const AdminDashboardScreen();
               }
@@ -150,6 +180,12 @@ class SocialMockApp extends StatelessWidget {
                   context
                       .read<NotificationProvider>()
                       .initializeNotificationStream(uid);
+                  
+                  // Load saved posts cache for performance
+                  context.read<PostProvider>().loadSavedPostIds(uid);
+
+                  // Save FCM token for user
+                  FCMService.saveTokenForUser(uid);
                 }
               });
 

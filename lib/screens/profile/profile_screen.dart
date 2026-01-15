@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/user_model.dart';
 import '../../models/post_model.dart';
@@ -10,12 +8,14 @@ import '../../providers/user_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/post_card.dart';
-import '../../widgets/avatar_picker_dialog.dart';
 
 import 'edit_profile_screen.dart';
 import '../../providers/post_provider.dart';
 import 'dart:async';
 import 'saved_posts_screen.dart';
+
+// Import extracted widgets
+import 'widgets/index.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -183,9 +183,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      _ProfileHeader(user: user, onEdit: _openEditProfile),
+                      ProfileHeader(user: user, onEdit: _openEditProfile),
                       const SizedBox(height: 12),
-                      _ProfileActions(
+                      ProfileActions(
                         onEdit: _openEditProfile,
                         onShare: _shareProfile,
                       ),
@@ -195,7 +195,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 SliverPersistentHeader(
                   pinned: true,
-                  delegate: _ProfileTabBarDelegate(
+                  delegate: ProfileTabBarDelegate(
                     TabBar(
                       indicatorColor: Colors.black,
                       labelColor: Colors.black,
@@ -229,125 +229,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               body: TabBarView(
                 children: [
                   // Tab 1: Bài đăng gốc (Grid)
-                  _buildPostsGrid(_originalPosts, user, isSharedTab: false),
+                  ProfilePostsGrid(
+                    posts: _originalPosts,
+                    user: user,
+                    isSharedTab: false,
+                    isLoadingPosts: _isLoadingPosts,
+                    sharedPostsData: _sharedPostsData,
+                    onPostTap: _openPostDetail,
+                  ),
                   // Tab 2: Bài đăng lại
-                  _buildPostsGrid(_sharedPosts, user, isSharedTab: true),
+                  ProfilePostsGrid(
+                    posts: _sharedPosts,
+                    user: user,
+                    isSharedTab: true,
+                    isLoadingPosts: _isLoadingPosts,
+                    sharedPostsData: _sharedPostsData,
+                    onPostTap: _openPostDetail,
+                  ),
                 ],
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPostsGrid(
-    List<PostModel> posts,
-    UserModel user, {
-    required bool isSharedTab,
-  }) {
-    if (_isLoadingPosts) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (posts.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isSharedTab ? Icons.repeat : Icons.photo_library_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              isSharedTab ? 'Chưa có bài đăng lại' : 'Chưa có bài đăng',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(2),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-      ),
-      itemCount: posts.length,
-      itemBuilder: (context, index) {
-        final post = posts[index];
-
-        // Lấy ảnh: nếu là bài share thì lấy ảnh từ bài gốc
-        String? imageUrl;
-        if (isSharedTab && post.sharedPostId != null) {
-          final originalPost = _sharedPostsData[post.sharedPostId];
-          if (originalPost != null && originalPost.imageUrls.isNotEmpty) {
-            imageUrl = originalPost.imageUrls[0];
-          }
-        } else if (post.imageUrls.isNotEmpty) {
-          imageUrl = post.imageUrls[0];
-        }
-
-        return GestureDetector(
-          onTap: () => _openPostDetail(post, user),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (imageUrl != null)
-                CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(color: Colors.grey[200]),
-                  errorWidget: (_, __, ___) => Container(
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.image, color: Colors.grey),
-                  ),
-                )
-              else
-                Container(
-                  color: Colors.grey[200],
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Text(
-                        post.caption,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-              // Icon cho bài share
-              if (isSharedTab)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Icon(
-                    Icons.repeat,
-                    color: Colors.white,
-                    size: 18,
-                    shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
-                  ),
-                ),
-              // Multiple images indicator - chỉ hiện khi không phải tab share
-              if (!isSharedTab && post.imageUrls.length > 1)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Icon(
-                    Icons.collections,
-                    color: Colors.white,
-                    size: 18,
-                    shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
-                  ),
-                ),
-            ],
           ),
         );
       },
@@ -503,210 +404,4 @@ ${user.bio != null && user.bio!.isNotEmpty ? '📝 ${user.bio}' : ''}
       ),
     );
   }
-}
-
-// ==================== WIDGETS ====================
-
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.user, required this.onEdit});
-
-  final UserModel user;
-  final VoidCallback onEdit;
-
-  void _showAvatarPicker(BuildContext context) {
-    AvatarPickerDialog.show(
-      context,
-      currentPhotoURL: user.photoURL,
-      onSave: (newUrl) async {
-        final userProvider = context.read<UserProvider>();
-        await userProvider.updateProfile(user.uid, {'photoURL': newUrl});
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Avatar - tap to change
-              GestureDetector(
-                onTap: () => _showAvatarPicker(context),
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 44,
-                      backgroundColor: Colors.grey[300],
-                      backgroundImage:
-                          user.photoURL != null && user.photoURL!.isNotEmpty
-                          ? CachedNetworkImageProvider(user.photoURL!)
-                          : null,
-                      child: user.photoURL == null || user.photoURL!.isEmpty
-                          ? const Icon(
-                              Icons.person,
-                              size: 44,
-                              color: Colors.white,
-                            )
-                          : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _StatItem(
-                      count: user.postsCount.toString(),
-                      label: 'Bài viết',
-                    ),
-                    _StatItem(
-                      count: user.followersCount.toString(),
-                      label: 'Người theo dõi',
-                    ),
-                    _StatItem(
-                      count: user.followingCount.toString(),
-                      label: 'Đang theo dõi',
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            user.displayName,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          if (user.bio != null && user.bio!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(user.bio!, style: const TextStyle(fontSize: 14)),
-          ],
-          if (user.link != null && user.link!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            InkWell(
-              onTap: () async {
-                final link = user.link!;
-                final uri = Uri.tryParse(
-                  link.startsWith('http') ? link : 'https://$link',
-                );
-                if (uri != null && await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
-              child: Text(
-                user.link!,
-                style: const TextStyle(color: Colors.blue, fontSize: 14),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  const _StatItem({required this.count, required this.label});
-
-  final String count;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          count,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-      ],
-    );
-  }
-}
-
-class _ProfileActions extends StatelessWidget {
-  const _ProfileActions({required this.onEdit, required this.onShare});
-
-  final VoidCallback onEdit;
-  final VoidCallback onShare;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: onEdit,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              child: const Text('Chỉnh sửa'),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: OutlinedButton(
-              onPressed: onShare,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              child: const Text('Chia sẻ'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
-  _ProfileTabBarDelegate(this.tabBar);
-
-  final TabBar tabBar;
-
-  @override
-  double get minExtent => tabBar.preferredSize.height;
-
-  @override
-  double get maxExtent => tabBar.preferredSize.height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Container(color: Colors.white, child: tabBar);
-  }
-
-  @override
-  bool shouldRebuild(_ProfileTabBarDelegate oldDelegate) =>
-      tabBar != oldDelegate.tabBar;
 }

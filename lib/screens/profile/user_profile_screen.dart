@@ -9,11 +9,12 @@ import '../../providers/follow_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/post_card.dart';
 import '../../widgets/avatar_view_dialog.dart';
+import '../message/chat_room_screen.dart';
 
 /// Profile screen for viewing OTHER users (not current user)
 class UserProfileScreen extends StatefulWidget {
   final String userId;
-  
+
   const UserProfileScreen({super.key, required this.userId});
 
   @override
@@ -22,10 +23,10 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  
+
   UserModel? _user;
   List<PostModel> _originalPosts = []; // Bài đăng gốc
-  List<PostModel> _sharedPosts = [];   // Bài đăng lại
+  List<PostModel> _sharedPosts = []; // Bài đăng lại
   Map<String, PostModel> _sharedPostsData = {}; // Cache bài gốc của bài share
   bool _isLoading = true;
   bool _isFollowing = false;
@@ -41,7 +42,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       // Load user info
       final user = await _firestoreService.getUser(widget.userId);
-      
+
       // Check if current user is following this user
       final authProvider = context.read<AuthProvider>();
       bool isFollowing = false;
@@ -65,17 +66,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         if (mounted) {
           final original = posts.where((p) => p.sharedPostId == null).toList();
           final shared = posts.where((p) => p.sharedPostId != null).toList();
-          
+
           // Load original posts for shared posts
           for (var post in shared) {
-            if (post.sharedPostId != null && !_sharedPostsData.containsKey(post.sharedPostId)) {
-              final originalPost = await _firestoreService.getPost(post.sharedPostId!);
+            if (post.sharedPostId != null &&
+                !_sharedPostsData.containsKey(post.sharedPostId)) {
+              final originalPost = await _firestoreService.getPost(
+                post.sharedPostId!,
+              );
               if (originalPost != null) {
                 _sharedPostsData[post.sharedPostId!] = originalPost;
               }
             }
           }
-          
+
           setState(() {
             _originalPosts = original;
             _sharedPosts = shared;
@@ -107,7 +111,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
       // Reload user data to update follower count
       final user = await _firestoreService.getUser(widget.userId);
-      
+
       if (mounted) {
         setState(() {
           _isFollowing = !_isFollowing;
@@ -118,18 +122,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isFollowLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
       }
     }
   }
 
-  void _showMessageComingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tính năng nhắn tin sẽ sớm ra mắt!'),
-        duration: Duration(seconds: 2),
+  /// Navigate to send message - opens chat room with this user
+  Future<void> _sendMessage() async {
+    final authProvider = context.read<AuthProvider>();
+    final currentUser = authProvider.userModel;
+    if (currentUser == null || _user == null) return;
+
+    // Navigate directly to ChatRoomScreen with this user
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            ChatRoomScreen(otherUser: _user!, currentUser: currentUser),
       ),
     );
   }
@@ -197,11 +208,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           child: CircleAvatar(
                             radius: 44,
                             backgroundColor: Colors.grey[300],
-                            backgroundImage: user.photoURL != null && user.photoURL!.isNotEmpty
+                            backgroundImage:
+                                user.photoURL != null &&
+                                    user.photoURL!.isNotEmpty
                                 ? CachedNetworkImageProvider(user.photoURL!)
                                 : null,
-                            child: user.photoURL == null || user.photoURL!.isEmpty
-                                ? const Icon(Icons.person, size: 44, color: Colors.white)
+                            child:
+                                user.photoURL == null || user.photoURL!.isEmpty
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 44,
+                                    color: Colors.white,
+                                  )
                                 : null,
                           ),
                         ),
@@ -210,28 +228,40 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              _buildStat(user.postsCount.toString(), 'Bài viết'),
-                              _buildStat(user.followersCount.toString(), 'Người theo dõi'),
-                              _buildStat(user.followingCount.toString(), 'Đang theo dõi'),
+                              _buildStat(
+                                user.postsCount.toString(),
+                                'Bài viết',
+                              ),
+                              _buildStat(
+                                user.followersCount.toString(),
+                                'Người theo dõi',
+                              ),
+                              _buildStat(
+                                user.followingCount.toString(),
+                                'Đang theo dõi',
+                              ),
                             ],
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // Name and bio
                     Text(
                       user.displayName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                     if (user.bio != null && user.bio!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(user.bio!, style: const TextStyle(fontSize: 14)),
                     ],
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Action buttons
                     Row(
                       children: [
@@ -239,8 +269,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           child: ElevatedButton(
                             onPressed: _isFollowLoading ? null : _toggleFollow,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _isFollowing ? Colors.grey[200] : Colors.blue,
-                              foregroundColor: _isFollowing ? Colors.black : Colors.white,
+                              backgroundColor: _isFollowing
+                                  ? Colors.grey[200]
+                                  : Colors.blue,
+                              foregroundColor: _isFollowing
+                                  ? Colors.black
+                                  : Colors.white,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
@@ -248,15 +282,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 ? const SizedBox(
                                     width: 20,
                                     height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
-                                : Text(_isFollowing ? 'Đang theo dõi' : 'Theo dõi'),
+                                : Text(
+                                    _isFollowing ? 'Đang theo dõi' : 'Theo dõi',
+                                  ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: _showMessageComingSoon,
+                            onPressed: _sendMessage,
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
@@ -323,8 +361,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isSharedTab ? Icons.repeat : Icons.photo_library_outlined, 
-              size: 64, 
+              isSharedTab ? Icons.repeat : Icons.photo_library_outlined,
+              size: 64,
               color: Colors.grey[400],
             ),
             const SizedBox(height: 16),
@@ -347,7 +385,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       itemCount: posts.length,
       itemBuilder: (context, index) {
         final post = posts[index];
-        
+
         // Lấy ảnh: nếu là bài share thì lấy ảnh từ bài gốc
         String? imageUrl;
         if (isSharedTab && post.sharedPostId != null) {
@@ -358,7 +396,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         } else if (post.imageUrls.isNotEmpty) {
           imageUrl = post.imageUrls[0];
         }
-        
+
         return GestureDetector(
           onTap: () => _openPostDetail(post),
           child: Stack(
@@ -424,7 +462,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildStat(String count, String label) {
     return Column(
       children: [
-        Text(count, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        Text(
+          count,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         const SizedBox(height: 4),
         Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
       ],
@@ -468,7 +509,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
 class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   _TabBarDelegate(this.tabBar);
-  
+
   final TabBar tabBar;
 
   @override
@@ -478,10 +519,15 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(color: Colors.white, child: tabBar);
   }
 
   @override
-  bool shouldRebuild(_TabBarDelegate oldDelegate) => tabBar != oldDelegate.tabBar;
+  bool shouldRebuild(_TabBarDelegate oldDelegate) =>
+      tabBar != oldDelegate.tabBar;
 }

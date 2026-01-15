@@ -4,15 +4,16 @@ import '../models/notification_model.dart';
 import '../models/user_model.dart';
 import '../services/notification_service.dart';
 import '../services/firestore_service.dart';
+import '../utils/app_logger.dart';
 
 class NotificationProvider with ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
   final FirestoreService _firestoreService = FirestoreService();
 
   List<NotificationModel> _notifications = [];
-  Map<String, UserModel> _notificationUsers = {}; // Cache user data
+  final Map<String, UserModel> _notificationUsers = {}; // Cache user data
   int _unreadCount = 0;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   String? _error;
   bool _isInitialized = false; // Prevent duplicate initialization
   String? _currentUserId;
@@ -33,15 +34,17 @@ class NotificationProvider with ChangeNotifier {
   void initializeNotificationStream(String userId) {
     // Prevent duplicate initialization for same user
     if (_isInitialized && _currentUserId == userId) {
-      print('[NotificationProvider] Already initialized for user: $userId');
+      AppLogger.info(
+        '[NotificationProvider] Already initialized for user: $userId',
+      );
       return;
     }
-    
-    print('[NotificationProvider] Initializing for user: $userId');
+
+    AppLogger.info('[NotificationProvider] Initializing for user: $userId');
     // Cancel existing subscriptions
     _notificationSubscription?.cancel();
     _unreadCountSubscription?.cancel();
-    
+
     _currentUserId = userId;
     _isInitialized = true;
 
@@ -50,7 +53,9 @@ class NotificationProvider with ChangeNotifier {
         .getNotificationsStream(userId)
         .listen(
           (List<NotificationModel> loadedNotifications) async {
-            print('[NotificationProvider] Received ${loadedNotifications.length} notifications');
+            AppLogger.info(
+              '[NotificationProvider] Received ${loadedNotifications.length} notifications',
+            );
             _notifications = loadedNotifications;
             notifyListeners();
 
@@ -58,7 +63,7 @@ class NotificationProvider with ChangeNotifier {
             await _loadNotificationUsers();
           },
           onError: (error) {
-            print('[NotificationProvider] Error: $error');
+            AppLogger.error('[NotificationProvider] Error', error: error);
             _error = error.toString();
             notifyListeners();
           },
@@ -69,12 +74,15 @@ class NotificationProvider with ChangeNotifier {
         .getUnreadCountStream(userId)
         .listen(
           (count) {
-            print('[NotificationProvider] Unread count: $count');
+            AppLogger.info('[NotificationProvider] Unread count: $count');
             _unreadCount = count;
             notifyListeners();
           },
           onError: (error) {
-            print('[NotificationProvider] Unread count error: $error');
+            AppLogger.error(
+              '[NotificationProvider] Unread count error',
+              error: error,
+            );
           },
         );
   }
@@ -103,7 +111,7 @@ class NotificationProvider with ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('Lỗi tải thông tin người dùng: $e');
+      AppLogger.error('Lỗi tải thông tin người dùng', error: e);
     }
   }
 
@@ -120,7 +128,7 @@ class NotificationProvider with ChangeNotifier {
   Future<void> markAsRead(String notificationId) async {
     try {
       await _notificationService.markAsRead(notificationId);
-      
+
       // Update local state optimistically
       final index = _notifications.indexWhere(
         (n) => n.notificationId == notificationId,
@@ -140,9 +148,11 @@ class NotificationProvider with ChangeNotifier {
   Future<void> markAllAsRead(String userId) async {
     try {
       await _notificationService.markAllAsRead(userId);
-      
+
       // Update local state
-      _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+      _notifications = _notifications
+          .map((n) => n.copyWith(isRead: true))
+          .toList();
       _unreadCount = 0;
       notifyListeners();
     } catch (e) {
@@ -157,7 +167,7 @@ class NotificationProvider with ChangeNotifier {
   Future<void> deleteNotification(String notificationId) async {
     try {
       await _notificationService.deleteNotification(notificationId);
-      
+
       // Remove from local state
       _notifications.removeWhere((n) => n.notificationId == notificationId);
       notifyListeners();
@@ -171,7 +181,7 @@ class NotificationProvider with ChangeNotifier {
   Future<void> deleteAllNotifications(String userId) async {
     try {
       await _notificationService.deleteAllNotifications(userId);
-      
+
       // Clear local state
       _notifications.clear();
       _unreadCount = 0;

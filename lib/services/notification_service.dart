@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/notification_model.dart';
+import '../utils/app_logger.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -114,11 +115,11 @@ class NotificationService {
 
       // Tạo notification cho từng follower
       final batch = _firestore.batch();
-      
+
       for (final doc in followersSnapshot.docs) {
         final followerId = doc.data()['followerId'] as String;
         final notificationRef = _notificationsRef.doc();
-        
+
         final notification = NotificationModel(
           notificationId: notificationRef.id,
           fromUserId: postAuthorId,
@@ -133,7 +134,7 @@ class NotificationService {
 
       await batch.commit();
     } catch (e) {
-      print('Lỗi khi tạo thông báo bài viết mới: $e');
+      AppLogger.error('Lỗi khi tạo thông báo bài viết mới', error: e);
     }
   }
 
@@ -262,7 +263,7 @@ class NotificationService {
 
       await batch.commit();
     } catch (e) {
-      print('Lỗi khi xóa notification trùng: $e');
+      AppLogger.error('Lỗi khi xóa notification trùng', error: e);
     }
   }
 }

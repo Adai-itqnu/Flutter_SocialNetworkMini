@@ -32,16 +32,16 @@ class _CommentScreenState extends State<CommentScreen> {
   void _submit() async {
     final user = context.read<AuthProvider>().userModel;
     if (_controller.text.trim().isEmpty || user == null) return;
-    
+
     final commentText = _controller.text.trim();
-    
+
     await _service.addComment(
       postId: widget.postId,
       userId: user.uid,
       text: commentText,
       parentCommentId: _replyId,
     );
-    
+
     // Create notification for post owner (not for self)
     if (widget.postOwnerId != user.uid) {
       await _notificationService.createCommentNotification(
@@ -51,7 +51,7 @@ class _CommentScreenState extends State<CommentScreen> {
         commentText: commentText,
       );
     }
-    
+
     _controller.clear();
     _focus.unfocus();
     setState(() {
@@ -107,7 +107,7 @@ class _CommentScreenState extends State<CommentScreen> {
           ),
           if (_replyName != null)
             Container(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withValues(alpha: 0.1),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [

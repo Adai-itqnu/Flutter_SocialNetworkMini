@@ -151,7 +151,7 @@ class _Header extends StatelessWidget {
     final color = _statusColor(r.status);
     return Container(
       padding: const EdgeInsets.all(12),
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       child: Row(
         children: [
           Icon(_statusIcon(r.status), color: color),

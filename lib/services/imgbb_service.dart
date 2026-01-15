@@ -2,10 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
+import '../utils/app_logger.dart';
 
 class ImgBBService {
   // Read from --dart-define first (production), fallback to .env (development)
-  static final String _apiKey = const String.fromEnvironment('IMGBB_API_KEY').isNotEmpty
+  static final String _apiKey =
+      const String.fromEnvironment('IMGBB_API_KEY').isNotEmpty
       ? const String.fromEnvironment('IMGBB_API_KEY')
       : (dotenv.env['IMGBB_API_KEY'] ?? '');
   static const String _baseUrl = 'https://api.imgbb.com/1/upload';
@@ -14,7 +16,8 @@ class ImgBBService {
   static Future<String> uploadImage(XFile imageFile) async {
     if (_apiKey.isEmpty) {
       throw Exception(
-          'ImgBB API key không được tìm thấy. Vui lòng build với: --dart-define=IMGBB_API_KEY=your_key');
+        'ImgBB API key không được tìm thấy. Vui lòng build với: --dart-define=IMGBB_API_KEY=your_key',
+      );
     }
 
     try {
@@ -46,7 +49,8 @@ class ImgBBService {
     } on DioException catch (e) {
       if (e.response != null) {
         throw Exception(
-            'Upload thất bại: ${e.response?.data['error']['message'] ?? e.message}');
+          'Upload thất bại: ${e.response?.data['error']['message'] ?? e.message}',
+        );
       } else {
         throw Exception('Lỗi kết nối: ${e.message}');
       }
@@ -57,7 +61,8 @@ class ImgBBService {
 
   // Upload multiple images
   static Future<List<String>> uploadMultipleImages(
-      List<XFile> imageFiles) async {
+    List<XFile> imageFiles,
+  ) async {
     List<String> imageUrls = [];
 
     for (XFile file in imageFiles) {
@@ -66,7 +71,7 @@ class ImgBBService {
         imageUrls.add(url);
       } catch (e) {
         // If one fails, continue with others but log error
-        print('Failed to upload image: $e');
+        AppLogger.warn('Failed to upload image: $e');
       }
     }
 

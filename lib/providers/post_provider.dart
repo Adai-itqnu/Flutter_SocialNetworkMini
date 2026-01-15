@@ -3,13 +3,15 @@ import '../models/post_model.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
+import '../utils/app_logger.dart';
 
 class PostProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
   final NotificationService _notificationService = NotificationService();
 
   List<PostModel> _posts = [];
-  Map<String, UserModel> _postAuthors = {}; // Cache user data for posts
+  final Map<String, UserModel> _postAuthors = {}; // Cache user data for posts
+  Set<String> _savedPostIds = {}; // Cache saved post IDs
   bool _isLoading = false;
   String? _error;
   String? _lastDeletedPostId; // Track deleted post for other screens to update
@@ -17,6 +19,7 @@ class PostProvider with ChangeNotifier {
   // Getters
   List<PostModel> get posts => _posts;
   Map<String, UserModel> get postAuthors => _postAuthors;
+  Set<String> get savedPostIds => _savedPostIds;
   bool get isLoading => _isLoading;
   String? get error => _error;
   String? get lastDeletedPostId => _lastDeletedPostId;
@@ -77,7 +80,7 @@ class PostProvider with ChangeNotifier {
           // Thông báo lại sau khi đã có đầy đủ info tác giả
           notifyListeners();
         } catch (e) {
-          print('Lỗi tải dữ liệu người dùng: $e');
+          AppLogger.error('Lỗi tải dữ liệu người dùng', error: e);
         }
       },
       onError: (error) {
@@ -213,6 +216,55 @@ class PostProvider with ChangeNotifier {
   // Get author for a post
   UserModel? getPostAuthor(String userId) {
     return _postAuthors[userId];
+  }
+
+  // ==================== SAVED POSTS CACHE ====================
+
+  /// Load saved post IDs for a user (call once on app start)
+  Future<void> loadSavedPostIds(String userId) async {
+    try {
+      _savedPostIds = await _firestoreService.getSavedPostIds(userId);
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Lỗi tải saved posts', error: e);
+    }
+  }
+
+  /// Check if post is saved (from cache - no network call)
+  bool isSaved(String postId) {
+    return _savedPostIds.contains(postId);
+  }
+
+  /// Toggle save state and update cache
+  Future<bool> toggleSave(String userId, String postId) async {
+    final wasSaved = _savedPostIds.contains(postId);
+    
+    // Optimistic update
+    if (wasSaved) {
+      _savedPostIds.remove(postId);
+    } else {
+      _savedPostIds.add(postId);
+    }
+    notifyListeners();
+
+    try {
+      if (wasSaved) {
+        await _firestoreService.unsavePost(userId, postId);
+      } else {
+        await _firestoreService.savePost(userId, postId);
+      }
+      return true;
+    } catch (e) {
+      // Revert on error
+      if (wasSaved) {
+        _savedPostIds.add(postId);
+      } else {
+        _savedPostIds.remove(postId);
+      }
+      notifyListeners();
+      _error = e.toString();
+      return false;
+    }
   }
 
   // Clear error

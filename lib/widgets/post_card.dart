@@ -4,17 +4,17 @@ import 'package:provider/provider.dart';
 import '../models/post_model.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
+import '../providers/post_provider.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import '../screens/comments/comment_screen.dart';
-import '../screens/profile/user_profile_screen.dart';
-import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
-
-// Import extracted widgets
 import 'post_card/post_header.dart';
 import 'post_card/post_interaction_bar.dart';
-import 'post_card/post_image_carousel.dart';
+
+// Image cache constants for performance
+const int _imageCacheWidth = 800;
+const int _imageCacheHeight = 800;
 
 class PostCard extends StatefulWidget {
   final PostModel post;
@@ -31,7 +31,7 @@ class _PostCardState extends State<PostCard>
   final FirestoreService _firestoreService = FirestoreService();
   final NotificationService _notificationService = NotificationService();
   bool _isLiked = false;
-  bool _isSaved = false; // NEW: Saved state
+  bool _isSaved = false;
   int _likesCount = 0;
   late AnimationController _likeAnimationController;
   late Animation<double> _likeAnimation;
@@ -52,7 +52,8 @@ class _PostCardState extends State<PostCard>
     super.initState();
     _likesCount = widget.post.likesCount;
     _checkIfLiked();
-    _checkIfSaved(); // NEW
+    // Use cached saved status from PostProvider instead of Firebase call
+    _isSaved = context.read<PostProvider>().isSaved(widget.post.postId);
 
     _likeAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
@@ -122,52 +123,28 @@ class _PostCardState extends State<PostCard>
     }
   }
 
-  Future<void> _checkIfSaved() async {
-    final currentUser = context.read<AuthProvider>().userModel;
-    if (currentUser != null) {
-      final saved = await _firestoreService.hasSavedPost(
-        currentUser.uid,
-        widget.post.postId,
-      );
-      if (mounted) {
-        setState(() {
-          _isSaved = saved;
-        });
-      }
-    }
-  }
-
   Future<void> _toggleSave() async {
     final currentUser = context.read<AuthProvider>().userModel;
     if (currentUser == null) return;
 
+    // Optimistic update
     setState(() {
       _isSaved = !_isSaved;
     });
 
-    try {
-      if (_isSaved) {
-        await _firestoreService.savePost(currentUser.uid, widget.post.postId);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đã lưu bài viết'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
-      } else {
-        await _firestoreService.unsavePost(currentUser.uid, widget.post.postId);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đã bỏ lưu bài viết'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
-      }
-    } catch (e) {
+    final success = await context.read<PostProvider>().toggleSave(
+      currentUser.uid,
+      widget.post.postId,
+    );
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isSaved ? 'Đã lưu bài viết' : 'Đã bỏ lưu bài viết'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    } else if (!success && mounted) {
       // Revert on error
       setState(() {
         _isSaved = !_isSaved;
@@ -408,59 +385,6 @@ class _PostCardState extends State<PostCard>
     );
   }
 
-  Widget _buildPostHeader() {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-      leading: GestureDetector(
-        onTap: _navigateToUserProfile,
-        child: CircleAvatar(
-          backgroundColor: Colors.grey[200],
-          backgroundImage: widget.author?.photoURL != null
-              ? CachedNetworkImageProvider(widget.author!.photoURL!)
-              : null,
-          child: widget.author?.photoURL == null
-              ? const Icon(Icons.person, color: Colors.grey)
-              : null,
-        ),
-      ),
-      title: GestureDetector(
-        onTap: _navigateToUserProfile,
-        child: Text(
-          widget.author?.displayName ?? 'Người dùng',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-      ),
-      subtitle: Text(
-        timeago.format(widget.post.createdAt, locale: 'vi'),
-        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.more_horiz),
-        onPressed: () {},
-      ),
-    );
-  }
-
-  void _navigateToUserProfile() {
-    // Don't navigate if this is the current user's post
-    final currentUser = context.read<AuthProvider>().userModel;
-    if (currentUser?.uid == widget.post.userId) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đây là trang cá nhân của bạn'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-      return;
-    }
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => UserProfileScreen(userId: widget.post.userId),
-      ),
-    );
-  }
-
   Widget _buildCaption() {
     if (widget.post.caption.isEmpty) return const SizedBox.shrink();
 
@@ -512,11 +436,12 @@ class _PostCardState extends State<PostCard>
                   return CachedNetworkImage(
                     imageUrl: widget.post.imageUrls[index],
                     fit: BoxFit.cover,
+                    memCacheWidth: _imageCacheWidth,
+                    memCacheHeight: _imageCacheHeight,
+                    fadeInDuration: const Duration(milliseconds: 150),
+                    fadeOutDuration: const Duration(milliseconds: 100),
                     placeholder: (context, url) => Container(
                       color: Colors.grey[200],
-                      child: const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
                     ),
                     errorWidget: (context, url, error) => Container(
                       color: Colors.grey[100],
@@ -624,11 +549,11 @@ class _PostCardState extends State<PostCard>
               width: double.infinity,
               height: 180,
               fit: BoxFit.cover,
+              memCacheWidth: 600,
+              memCacheHeight: 400,
+              fadeInDuration: const Duration(milliseconds: 150),
               placeholder: (context, url) => Container(
                 color: Colors.grey[200],
-                child: const Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
               ),
               errorWidget: (context, url, error) => Container(
                 color: Colors.grey[100],
@@ -643,101 +568,6 @@ class _PostCardState extends State<PostCard>
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInteractionBar() {
-    return Row(
-      children: [
-        // Nút Thích + Số lượng
-        InkWell(
-          onTap: _toggleLike,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                ScaleTransition(
-                  scale: _likeAnimation,
-                  child: Icon(
-                    _isLiked ? Icons.favorite : Icons.favorite_border,
-                    color: _isLiked ? Colors.red : Colors.black87,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                if (_likesCount > 0)
-                  Text(
-                    '$_likesCount',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        // Nút Bình luận + Số lượng
-        InkWell(
-          onTap: _openComments,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.chat_bubble_outline,
-                  color: Colors.black87,
-                  size: 22,
-                ),
-                const SizedBox(width: 4),
-                if (widget.post.commentsCount > 0)
-                  Text(
-                    '${widget.post.commentsCount}',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        // Nút Chia sẻ
-        IconButton(
-          onPressed: _showShareDialog,
-          icon: const Icon(
-            Icons.share_outlined,
-            color: Colors.black87,
-            size: 22,
-          ),
-        ),
-        const Spacer(),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.bookmark_border, size: 22),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStats() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_likesCount > 0)
-            Text(
-              '$_likesCount lượt thích',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          if (widget.post.commentsCount > 0)
-            GestureDetector(
-              onTap: _openComments,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'Xem tất cả ${widget.post.commentsCount} bình luận',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                ),
               ),
             ),
         ],

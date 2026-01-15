@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/follow_model.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
@@ -48,20 +47,20 @@ class FollowProvider with ChangeNotifier {
       final followerIds = await _firestoreService.getFollowers(userId);
       final followingIds = await _firestoreService.getFollowing(userId);
 
-      // Load user data for followers
+      // Load user data for followers (exclude admin)
       final followers = <UserModel>[];
       for (final uid in followerIds) {
         final user = await _firestoreService.getUser(uid);
-        if (user != null) {
+        if (user != null && user.role != 'admin') {
           followers.add(user);
         }
       }
 
-      // Load user data for following
+      // Load user data for following (exclude admin)
       final following = <UserModel>[];
       for (final uid in followingIds) {
         final user = await _firestoreService.getUser(uid);
-        if (user != null) {
+        if (user != null && user.role != 'admin') {
           following.add(user);
           _followingStatus[uid] = true;
         }
@@ -70,7 +69,10 @@ class FollowProvider with ChangeNotifier {
       // Check if current user follows each follower (for "follow back" status)
       for (final follower in followers) {
         if (!_followingStatus.containsKey(follower.uid)) {
-          final isFollowing = await _firestoreService.isFollowing(userId, follower.uid);
+          final isFollowing = await _firestoreService.isFollowing(
+            userId,
+            follower.uid,
+          );
           _followingStatus[follower.uid] = isFollowing;
         }
       }
@@ -98,7 +100,7 @@ class FollowProvider with ChangeNotifier {
 
     try {
       await _firestoreService.followUser(currentUserId, targetUserId);
-      
+
       // Create follow notification
       await _notificationService.createFollowNotification(
         fromUserId: currentUserId,
@@ -159,12 +161,18 @@ class FollowProvider with ChangeNotifier {
   }
 
   /// Check follow status for a specific user (from Firestore)
-  Future<bool> checkFollowStatus(String currentUserId, String targetUserId) async {
+  Future<bool> checkFollowStatus(
+    String currentUserId,
+    String targetUserId,
+  ) async {
     if (_followingStatus.containsKey(targetUserId)) {
       return _followingStatus[targetUserId]!;
     }
 
-    final isFollowing = await _firestoreService.isFollowing(currentUserId, targetUserId);
+    final isFollowing = await _firestoreService.isFollowing(
+      currentUserId,
+      targetUserId,
+    );
     _followingStatus[targetUserId] = isFollowing;
     notifyListeners();
     return isFollowing;
@@ -181,22 +189,27 @@ class FollowProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load suggested users (all users except current user)
+  /// Load suggested users (all users except current user and admin)
   Future<void> loadSuggestedUsers(String currentUserId) async {
     try {
       final allUsers = await _firestoreService.getAllUsers(limit: 50);
-      
-      // Filter out current user and check follow status for each
-      _suggestedUsers = allUsers.where((u) => u.uid != currentUserId).toList();
-      
+
+      // Filter out current user and admin users
+      _suggestedUsers = allUsers
+          .where((u) => u.uid != currentUserId && u.role != 'admin')
+          .toList();
+
       // Check follow status for suggested users
       for (final user in _suggestedUsers) {
         if (!_followingStatus.containsKey(user.uid)) {
-          final isFollowing = await _firestoreService.isFollowing(currentUserId, user.uid);
+          final isFollowing = await _firestoreService.isFollowing(
+            currentUserId,
+            user.uid,
+          );
           _followingStatus[user.uid] = isFollowing;
         }
       }
-      
+
       notifyListeners();
     } catch (e) {
       _error = e.toString();

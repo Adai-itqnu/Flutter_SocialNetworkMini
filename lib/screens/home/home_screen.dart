@@ -4,9 +4,10 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/post_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../services/chat_service.dart';
 import '../../widgets/post_card.dart';
 import 'create_post_screen.dart';
-import 'SearchScreen.dart';
+import 'search_screen.dart';
 import '../notification/notifications_screen.dart';
 import '../message/messages_screen.dart';
 import '../follow/my_follow_screen.dart';
@@ -23,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _isAddPressed = false;
   final ScrollController _scrollController = ScrollController();
+  final ChatService _chatService = ChatService();
 
   // For hide-on-scroll title
   bool _showTitle = true;
@@ -140,11 +142,74 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MessagesScreen()),
-            ),
-            icon: const Icon(Icons.chat_bubble_outline, color: Colors.black),
+          // Chat icon with unread count badge
+          Consumer<AuthProvider>(
+            builder: (context, authProvider, _) {
+              final currentUserId = authProvider.userModel?.uid;
+              if (currentUserId == null) {
+                return IconButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MessagesScreen()),
+                  ),
+                  icon: const Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.black,
+                  ),
+                );
+              }
+
+              return StreamBuilder<int>(
+                stream: _chatService.getTotalUnreadCountStream(currentUserId),
+                builder: (context, snapshot) {
+                  final unreadCount = snapshot.data ?? 0;
+
+                  return IconButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MessagesScreen()),
+                    ),
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(
+                          Icons.chat_bubble_outline,
+                          color: Colors.black,
+                        ),
+                        if (unreadCount > 0)
+                          Positioned(
+                            right: -6,
+                            top: -6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                unreadCount > 99
+                                    ? '99+'
+                                    : unreadCount.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
           Consumer<NotificationProvider>(
             builder: (context, notificationProvider, _) {

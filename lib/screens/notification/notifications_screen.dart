@@ -4,7 +4,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../../models/notification_model.dart';
-import '../../models/post_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
@@ -27,8 +26,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();
       final notificationProvider = context.read<NotificationProvider>();
-      
-      if (authProvider.firebaseUser != null && 
+
+      if (authProvider.firebaseUser != null &&
           notificationProvider.notifications.isEmpty) {
         notificationProvider.initializeNotificationStream(
           authProvider.firebaseUser!.uid,
@@ -69,7 +68,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   void _onNotificationTap(NotificationModel notification) async {
     final notificationProvider = context.read<NotificationProvider>();
-    
+
     // Mark as read
     if (!notification.isRead) {
       notificationProvider.markAsRead(notification.notificationId);
@@ -100,7 +99,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       final firestoreService = FirestoreService();
       final post = await firestoreService.getPost(postId);
-      
+
       if (post == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -147,9 +146,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
       }
     }
   }
@@ -177,11 +176,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               return Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: TextButton(
-                  onPressed: hasUnread 
+                  onPressed: hasUnread
                       ? () {
                           final authProvider = context.read<AuthProvider>();
                           if (authProvider.firebaseUser != null) {
-                            provider.markAllAsRead(authProvider.firebaseUser!.uid);
+                            provider.markAllAsRead(
+                              authProvider.firebaseUser!.uid,
+                            );
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Đã đánh dấu tất cả là đã đọc'),
@@ -231,10 +232,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   Text(
                     'Thông báo sẽ xuất hiện khi có người\ntương tác với bạn',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                   ),
                 ],
               ),
@@ -247,7 +245,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final notification = provider.notifications[index];
-              final fromUser = provider.getNotificationUser(notification.fromUserId);
+              final fromUser = provider.getNotificationUser(
+                notification.fromUserId,
+              );
 
               return _NotificationCard(
                 notification: notification,
@@ -255,7 +255,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 icon: _getNotificationIcon(notification.type),
                 iconColor: _getNotificationColor(notification.type),
                 onTap: () => _onNotificationTap(notification),
-                onDismiss: () => provider.deleteNotification(notification.notificationId),
+                onDismiss: () =>
+                    provider.deleteNotification(notification.notificationId),
               );
             },
           );
@@ -306,8 +307,8 @@ class _NotificationCard extends StatelessWidget {
         elevation: isRead ? 0 : 1,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: isRead 
-              ? BorderSide.none 
+          side: isRead
+              ? BorderSide.none
               : BorderSide(color: Colors.blue.shade100, width: 1),
         ),
         color: isRead ? Colors.white : Colors.blue.shade50,
@@ -355,7 +356,7 @@ class _NotificationCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(width: 12),
-                
+
                 // Notification content
                 Expanded(
                   child: Column(
@@ -371,7 +372,9 @@ class _NotificationCard extends StatelessWidget {
                           children: [
                             TextSpan(
                               text: userName,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             TextSpan(
                               text: ' ${notification.getContent(userName)}',
@@ -383,15 +386,12 @@ class _NotificationCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         timeAgo,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       ),
                     ],
                   ),
                 ),
-                
+
                 // Unread indicator
                 if (!isRead)
                   Container(
