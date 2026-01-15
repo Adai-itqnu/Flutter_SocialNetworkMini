@@ -35,6 +35,13 @@ class AuthProvider with ChangeNotifier {
   Future<void> _loadUserData(String uid) async {
     try {
       _userModel = await _authService.getUserData(uid);
+      
+      // If user logged in but no Firestore profile exists (e.g., deleted DB), create one
+      if (_userModel == null && _firebaseUser != null) {
+        await _authService.createMissingUserProfile(_firebaseUser!);
+        _userModel = await _authService.getUserData(uid);
+      }
+      
       notifyListeners();
     } catch (e) {
       _error = e.toString();

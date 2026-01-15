@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_sign_in/google_sign_in.dart' as g_signin;
 import '../models/user_model.dart';
 
-/// AuthService - Xử lý xác thực người dùng (Mobile-only)
+/// AuthService - Xử lý xác thực người dùng (Web + Mobile)
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -26,14 +28,38 @@ class AuthService {
     }
   }
 
-  // Sign in with Google (Mobile only - uses signInWithProvider)
+  // Sign in with Google (Web: popup, Mobile: native)
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      GoogleAuthProvider googleProvider = GoogleAuthProvider();
-      googleProvider.addScope('email');
-      googleProvider.addScope('profile');
-
-      final userCredential = await _auth.signInWithProvider(googleProvider);
+      UserCredential userCredential;
+      
+      if (kIsWeb) {
+        // Web: Use popup
+        GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        userCredential = await _auth.signInWithPopup(googleProvider);
+      } else {
+        // Mobile: Use google_sign_in package for native flow
+        final g_signin.GoogleSignIn googleSignIn = g_signin.GoogleSignIn(
+          scopes: ['email', 'profile'],
+        );
+        
+        final g_signin.GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+        
+        if (googleUser == null) {
+          return null; // User cancelled
+        }
+        
+        final g_signin.GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        
+        final OAuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        
+        userCredential = await _auth.signInWithCredential(credential);
+      }
 
       // Check if user exists in Firestore, if not create new document
       if (userCredential.user != null) {
@@ -43,7 +69,6 @@ class AuthService {
             .get();
 
         if (!userDoc.exists) {
-          // Create new user document for first-time Google sign-in
           await _createUserDocument(
             uid: userCredential.user!.uid,
             email: userCredential.user!.email ?? '',
@@ -56,8 +81,8 @@ class AuthService {
 
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'sign_in_canceled') {
-        return null; // User cancelled
+      if (e.code == 'popup-closed-by-user' || e.code == 'sign_in_canceled') {
+        return null;
       }
       throw Exception('Đăng nhập Google thất bại: ${e.message}');
     } catch (e) {
@@ -170,6 +195,21 @@ class AuthService {
       return null;
     } catch (e) {
       throw Exception('Không thể lấy thông tin người dùng: $e');
+    }
+  }
+
+  /// Create user profile if missing (for users who logged in but DB was deleted)
+  Future<void> createMissingUserProfile(User firebaseUser) async {
+    try {
+      await _createUserDocument(
+        uid: firebaseUser.uid,
+        email: firebaseUser.email ?? '',
+        username: _generateUsername(firebaseUser.email ?? firebaseUser.uid),
+        displayName: firebaseUser.displayName ?? 'User',
+        photoURL: firebaseUser.photoURL,
+      );
+    } catch (e) {
+      throw Exception('Không thể tạo profile: $e');
     }
   }
 
