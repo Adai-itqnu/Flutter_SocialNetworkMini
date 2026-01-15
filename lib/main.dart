@@ -16,6 +16,7 @@ import 'screens/auth/forgot_password_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 import 'services/fcm_service.dart';
 import 'utils/app_logger.dart';
+import 'models/user_model.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 void main() async {
@@ -145,57 +146,7 @@ class SocialMockApp extends StatelessWidget {
             ),
           ),
         ),
-        home: Consumer<AuthProvider>(
-          builder: (context, authProvider, _) {
-            // Show loading while checking auth state
-            if (authProvider.firebaseUser == null && authProvider.isLoading) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            // If authenticated, check role and redirect
-            if (authProvider.isAuthenticated) {
-              final currentUser = authProvider.userModel;
-
-              // Still loading user data from Firestore
-              if (currentUser == null) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
-              }
-
-              // Check if admin
-              if (currentUser.role == 'admin') {
-                // Admin: NO need to initialize user streams
-                return const AdminDashboardScreen();
-              }
-
-              // Regular user: Initialize streams
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                context.read<PostProvider>().initializePostStream();
-                if (authProvider.firebaseUser != null) {
-                  final uid = authProvider.firebaseUser!.uid;
-                  context.read<UserProvider>().loadUser(uid);
-                  context
-                      .read<NotificationProvider>()
-                      .initializeNotificationStream(uid);
-                  
-                  // Load saved posts cache for performance
-                  context.read<PostProvider>().loadSavedPostIds(uid);
-
-                  // Save FCM token for user
-                  FCMService.saveTokenForUser(uid);
-                }
-              });
-
-              return const HomeScreen();
-            }
-
-            // Otherwise, show Login
-            return const LoginScreen();
-          },
-        ),
+        home: const AuthWrapper(),
         routes: {
           LoginScreen.routeName: (context) => const LoginScreen(),
           RegisterScreen.routeName: (context) => const RegisterScreen(),
@@ -207,3 +158,65 @@ class SocialMockApp extends StatelessWidget {
     );
   }
 }
+
+/// AuthWrapper handles auth state changes using Selector
+/// This only rebuilds when isAuthenticated changes, NOT when isLoading changes
+/// Prevents LoginScreen from rebuilding on failed login attempts
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Use Selector to only rebuild when these specific values change
+    return Selector<AuthProvider, ({bool isAuthenticated, UserModel? userModel})>(
+      selector: (_, auth) => (
+        isAuthenticated: auth.isAuthenticated,
+        userModel: auth.userModel,
+      ),
+      builder: (context, authState, _) {
+        // If authenticated, check role and redirect
+        if (authState.isAuthenticated) {
+          final currentUser = authState.userModel;
+
+          // Still loading user data from Firestore
+          if (currentUser == null) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          // Check if admin
+          if (currentUser.role == 'admin') {
+            return const AdminDashboardScreen();
+          }
+
+          // Regular user: Initialize streams
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final authProvider = context.read<AuthProvider>();
+            context.read<PostProvider>().initializePostStream();
+            if (authProvider.firebaseUser != null) {
+              final uid = authProvider.firebaseUser!.uid;
+              context.read<UserProvider>().loadUser(uid);
+              context
+                  .read<NotificationProvider>()
+                  .initializeNotificationStream(uid);
+              
+              // Load saved posts cache for performance
+              context.read<PostProvider>().loadSavedPostIds(uid);
+
+              // Save FCM token for user
+              FCMService.saveTokenForUser(uid);
+            }
+          });
+
+          return const HomeScreen();
+        }
+
+        // Not authenticated - show Login
+        // This won't rebuild during login attempts because isAuthenticated stays false
+        return const LoginScreen();
+      },
+    );
+  }
+}
+

@@ -70,25 +70,9 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// Parse Firebase auth error to Vietnamese message
+  /// Simplified: Only show one generic message for login errors
   String _parseAuthError(String error) {
-    if (error.contains('wrong-password') || error.contains('invalid-credential')) {
-      return 'Sai mật khẩu. Vui lòng thử lại.';
-    } else if (error.contains('user-not-found')) {
-      return 'Không tìm thấy tài khoản với email này.';
-    } else if (error.contains('invalid-email')) {
-      return 'Email không hợp lệ.';
-    } else if (error.contains('user-disabled')) {
-      return 'Tài khoản đã bị vô hiệu hóa.';
-    } else if (error.contains('too-many-requests')) {
-      return 'Quá nhiều lần thử. Vui lòng thử lại sau.';
-    } else if (error.contains('network')) {
-      return 'Lỗi kết nối mạng. Kiểm tra internet.';
-    } else if (error.contains('email-already-in-use')) {
-      return 'Email đã được sử dụng.';
-    } else if (error.contains('weak-password')) {
-      return 'Mật khẩu quá yếu. Cần ít nhất 6 ký tự.';
-    }
-    return 'Đăng nhập thất bại. Vui lòng thử lại.';
+    return 'Sai email hoặc mật khẩu vui lòng thử lại!';
   }
 
   // Sign up

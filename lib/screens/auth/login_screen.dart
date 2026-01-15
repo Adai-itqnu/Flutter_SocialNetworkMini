@@ -72,11 +72,11 @@ class _LoginScreenState extends State<LoginScreen> {
     return AuthScaffold(
       title: 'Chào mừng trở lại',
       subtitle: 'Đăng nhập để tiếp tục trải nghiệm.',
-      form: Consumer<AuthProvider>(
-        builder: (context, authProvider, _) {
-          return Form(
-            key: _formKey,
-            child: Column(
+      form: Form(
+        key: _formKey,
+        child: Consumer<AuthProvider>(
+          builder: (context, authProvider, _) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const TextFieldLabel('Email'),
@@ -184,9 +184,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Text('Tạo tài khoản mới'),
                 ),
               ],
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
