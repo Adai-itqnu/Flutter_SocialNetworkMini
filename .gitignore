@@ -49,6 +49,10 @@ app.*.map.json
 .env.local
 .env.*.local
 
+# Firebase config files with API keys
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
 # Firebase (config is in firebase_options.dart - safe to commit)
 # But ensure no sensitive keys are hardcoded
 
