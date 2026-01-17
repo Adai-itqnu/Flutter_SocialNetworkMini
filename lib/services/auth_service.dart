@@ -121,8 +121,11 @@ class AuthService {
         password: password,
       );
 
-      // Create user document in Firestore
+      // Update display name in Firebase Auth
       if (result.user != null) {
+        await result.user!.updateDisplayName(displayName);
+        
+        // Create user document in Firestore
         await _createUserDocument(
           uid: result.user!.uid,
           email: email,

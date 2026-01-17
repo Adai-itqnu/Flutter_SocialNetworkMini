@@ -23,12 +23,14 @@ class MessagesScreen extends StatefulWidget {
 class _MessagesScreenState extends State<MessagesScreen> {
   final ChatService _chatService = ChatService();
   final TextEditingController _messageController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   
   int? _selectedChatIndex;
   UserModel? _selectedUser;
   ChatRoomModel? _currentChatRoom;
   bool _isLoadingChat = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -46,6 +48,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   void dispose() {
     _messageController.dispose();
+    _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -173,10 +176,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 onPressed: () => Navigator.pop(context),
               ),
               title: const Text('Tin nhắn', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-              actions: [
-                IconButton(icon: const Icon(Icons.more_horiz, color: Colors.black), onPressed: () {}),
-                IconButton(icon: const Icon(Icons.edit_square, color: Colors.black), onPressed: () {}),
-              ],
+
             ),
             body: _buildMobileChatList(),
           );
@@ -208,10 +208,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
         Padding(
           padding: const EdgeInsets.all(12),
           child: TextField(
+            controller: _searchController,
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value.toLowerCase().trim();
+              });
+            },
             decoration: InputDecoration(
               hintText: 'Tìm kiếm trên Messenger',
               hintStyle: TextStyle(color: Colors.grey[600]),
               prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
               filled: true,
               fillColor: Colors.grey[200],
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
@@ -247,21 +262,43 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       );
                     }
 
+                    // Filter by search query
+                    var filteredRooms = chatRooms.where((room) {
+                      if (_searchQuery.isEmpty) return true;
+                      final otherParticipant = room.getOtherParticipant(currentUserId);
+                      if (otherParticipant == null) return false;
+                      final displayName = otherParticipant.displayName.toLowerCase();
+                      final username = otherParticipant.username.toLowerCase();
+                      return displayName.contains(_searchQuery) || username.contains(_searchQuery);
+                    }).toList();
+
                     // Sort by last message time (newest first)
-                    final sortedRooms = List<ChatRoomModel>.from(chatRooms)
-                      ..sort((a, b) {
-                        final timeA = a.lastMessageTime;
-                        final timeB = b.lastMessageTime;
-                        if (timeA == null && timeB == null) return 0;
-                        if (timeA == null) return 1;
-                        if (timeB == null) return -1;
-                        return timeB.compareTo(timeA);
-                      });
+                    filteredRooms.sort((a, b) {
+                      final timeA = a.lastMessageTime;
+                      final timeB = b.lastMessageTime;
+                      if (timeA == null && timeB == null) return 0;
+                      if (timeA == null) return 1;
+                      if (timeB == null) return -1;
+                      return timeB.compareTo(timeA);
+                    });
+
+                    if (filteredRooms.isEmpty && _searchQuery.isNotEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                            const SizedBox(height: 16),
+                            Text('Không tìm thấy "$_searchQuery"', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                          ],
+                        ),
+                      );
+                    }
 
                     return ListView.builder(
-                      itemCount: sortedRooms.length,
+                      itemCount: filteredRooms.length,
                       itemBuilder: (context, index) {
-                        final room = sortedRooms[index];
+                        final room = filteredRooms[index];
                         final otherParticipant = room.getOtherParticipant(currentUserId);
                         final unreadCount = room.getUnreadCountFor(currentUserId);
                         final hasUnread = unreadCount > 0;
@@ -384,8 +421,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 const SizedBox(width: 8),
                 const Text('Tin nhắn', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const Spacer(),
-                IconButton(icon: const Icon(Icons.more_horiz, color: Colors.black), onPressed: () {}),
-                IconButton(icon: const Icon(Icons.edit_square, color: Colors.black), onPressed: () {}),
               ],
             ),
           ),
@@ -393,10 +428,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase().trim();
+                });
+              },
               decoration: InputDecoration(
                 hintText: 'Tìm kiếm trên Messenger',
                 hintStyle: TextStyle(color: Colors.grey[600]),
                 prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
                 filled: true,
                 fillColor: Colors.grey[200],
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
@@ -432,21 +482,43 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         );
                       }
 
+                      // Filter by search query
+                      var filteredRooms = chatRooms.where((room) {
+                        if (_searchQuery.isEmpty) return true;
+                        final otherParticipant = room.getOtherParticipant(currentUserId);
+                        if (otherParticipant == null) return false;
+                        final displayName = otherParticipant.displayName.toLowerCase();
+                        final username = otherParticipant.username.toLowerCase();
+                        return displayName.contains(_searchQuery) || username.contains(_searchQuery);
+                      }).toList();
+
                       // Sort by last message time (newest first)
-                      final sortedRooms = List<ChatRoomModel>.from(chatRooms)
-                        ..sort((a, b) {
-                          final timeA = a.lastMessageTime;
-                          final timeB = b.lastMessageTime;
-                          if (timeA == null && timeB == null) return 0;
-                          if (timeA == null) return 1;
-                          if (timeB == null) return -1;
-                          return timeB.compareTo(timeA);
-                        });
+                      filteredRooms.sort((a, b) {
+                        final timeA = a.lastMessageTime;
+                        final timeB = b.lastMessageTime;
+                        if (timeA == null && timeB == null) return 0;
+                        if (timeA == null) return 1;
+                        if (timeB == null) return -1;
+                        return timeB.compareTo(timeA);
+                      });
+
+                      if (filteredRooms.isEmpty && _searchQuery.isNotEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                              const SizedBox(height: 16),
+                              Text('Không tìm thấy "$_searchQuery"', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                            ],
+                          ),
+                        );
+                      }
 
                       return ListView.builder(
-                        itemCount: sortedRooms.length,
+                        itemCount: filteredRooms.length,
                         itemBuilder: (context, index) {
-                          final room = sortedRooms[index];
+                          final room = filteredRooms[index];
                           final otherParticipant = room.getOtherParticipant(currentUserId);
                           final unreadCount = room.getUnreadCountFor(currentUserId);
                           final hasUnread = unreadCount > 0;
