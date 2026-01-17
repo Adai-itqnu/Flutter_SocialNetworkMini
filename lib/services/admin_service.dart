@@ -3,103 +3,78 @@ import '../models/user_model.dart';
 import '../models/post_model.dart';
 import '../models/report_model.dart';
 
+/// Service quản lý admin
+/// Bao gồm: quản lý user, quản lý bài viết, quản lý báo cáo, thống kê
 class AdminService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ============ USER MANAGEMENT ============
+  // Quản lý User
 
-  // Get all users with pagination
+  // Lấy tất cả users với phân trang
   Future<List<UserModel>> getAllUsers({int limit = 50}) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
-
+      final snapshot = await _firestore.collection('users').orderBy('createdAt', descending: true).limit(limit).get();
       return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
     } catch (e) {
-      throw Exception('Failed to get users: $e');
+      throw Exception('Lỗi khi lấy danh sách users: $e');
     }
   }
 
-  // Search users by username or email
+  // Tìm kiếm users theo username
   Future<List<UserModel>> searchUsers(String query) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .where('username', isGreaterThanOrEqualTo: query)
-          .where('username', isLessThanOrEqualTo: '$query\uf8ff')
-          .limit(20)
-          .get();
-
+      final snapshot = await _firestore.collection('users').where('username', isGreaterThanOrEqualTo: query).where('username', isLessThanOrEqualTo: '$query\uf8ff').limit(20).get();
       return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
     } catch (e) {
-      throw Exception('Failed to search users: $e');
+      throw Exception('Lỗi khi tìm kiếm users: $e');
     }
   }
 
-  // Block/Unblock user (you can add a 'blocked' field to UserModel)
+  // Chặn/Bỏ chặn user
   Future<void> toggleUserBlock(String userId, bool isBlocked) async {
     try {
-      await _firestore.collection('users').doc(userId).update({
-        'blocked': isBlocked,
-      });
+      await _firestore.collection('users').doc(userId).update({'blocked': isBlocked});
     } catch (e) {
-      throw Exception('Failed to toggle user block: $e');
+      throw Exception('Lỗi khi toggle block user: $e');
     }
   }
 
-  // Delete user account (admin only)
+  // Xóa tài khoản user (chỉ admin)
   Future<void> deleteUser(String userId) async {
     try {
-      // Delete user document
       await _firestore.collection('users').doc(userId).delete();
-
-      // Note: You may want to also delete user's posts, comments, etc.
-      // This is a simplified version
     } catch (e) {
-      throw Exception('Failed to delete user: $e');
+      throw Exception('Lỗi khi xóa user: $e');
     }
   }
 
-  // ============ POST MANAGEMENT ============
+  // Quản lý Bài viết
 
-  // Get all posts with pagination
+  // Lấy tất cả bài viết với phân trang
   Future<List<PostModel>> getAllPosts({int limit = 50}) async {
     try {
-      final snapshot = await _firestore
-          .collection('posts')
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
-
+      final snapshot = await _firestore.collection('posts').orderBy('createdAt', descending: true).limit(limit).get();
       return snapshot.docs.map((doc) => PostModel.fromFirestore(doc)).toList();
     } catch (e) {
-      throw Exception('Failed to get posts: $e');
+      throw Exception('Lỗi khi lấy danh sách bài viết: $e');
     }
   }
 
-  // Delete any post (admin power)
+  // Xóa bài viết bất kỳ (quyền admin)
   Future<void> deletePost(String postId) async {
     try {
       await _firestore.collection('posts').doc(postId).delete();
     } catch (e) {
-      throw Exception('Failed to delete post: $e');
+      throw Exception('Lỗi khi xóa bài viết: $e');
     }
   }
 
-  // ============ REPORT MANAGEMENT ============
+  // Quản lý Báo cáo
 
-  // Create a report
-  Future<void> createReport({
-    required String postId,
-    required String reportedBy,
-    required String postOwnerId,
-    required String reason,
-  }) async {
+  // Tạo báo cáo
+  Future<void> createReport({required String postId, required String reportedBy, required String postOwnerId, required String reason}) async {
     try {
-      // Fetch post data to save snapshot
+      // Lấy thông tin bài viết để lưu snapshot
       final postDoc = await _firestore.collection('posts').doc(postId).get();
       String? postCaption;
       List<String>? postImageUrls;
@@ -107,9 +82,7 @@ class AdminService {
       if (postDoc.exists) {
         final postData = postDoc.data() as Map<String, dynamic>;
         postCaption = postData['caption'];
-        postImageUrls = postData['imageUrls'] != null
-            ? List<String>.from(postData['imageUrls'])
-            : null;
+        postImageUrls = postData['imageUrls'] != null ? List<String>.from(postData['imageUrls']) : null;
       }
 
       final reportRef = _firestore.collection('reports').doc();
@@ -127,79 +100,56 @@ class AdminService {
 
       await reportRef.set(report.toJson());
     } catch (e) {
-      throw Exception('Failed to create report: $e');
+      throw Exception('Lỗi khi tạo báo cáo: $e');
     }
   }
 
-  // Get all reports
-  // Note: We fetch all and filter client-side to avoid composite index requirement
+  // Stream danh sách báo cáo
   Stream<List<ReportModel>> getReportsStream({String status = 'all'}) {
     return _firestore.collection('reports').snapshots().map((snapshot) {
-      // Get all reports
-      var reports = snapshot.docs
-          .map((doc) => ReportModel.fromFirestore(doc))
-          .toList();
-
-      // Filter by status if not 'all'
-      if (status != 'all') {
-        reports = reports.where((r) => r.status == status).toList();
-      }
-
-      // Sort by createdAt descending
+      var reports = snapshot.docs.map((doc) => ReportModel.fromFirestore(doc)).toList();
+      if (status != 'all') reports = reports.where((r) => r.status == status).toList();
       reports.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
       return reports;
     });
   }
 
-  // Update report status
+  // Cập nhật trạng thái báo cáo
   Future<void> updateReportStatus(String reportId, String status) async {
     try {
-      await _firestore.collection('reports').doc(reportId).update({
-        'status': status,
-      });
+      await _firestore.collection('reports').doc(reportId).update({'status': status});
     } catch (e) {
-      throw Exception('Failed to update report status: $e');
+      throw Exception('Lỗi khi cập nhật trạng thái báo cáo: $e');
     }
   }
 
-  // Resolve report and delete post
-  Future<void> resolveReportAndDeletePost(
-    String reportId,
-    String postId,
-  ) async {
+  // Xử lý báo cáo và xóa bài viết
+  Future<void> resolveReportAndDeletePost(String reportId, String postId) async {
     try {
-      // Delete the post
       await deletePost(postId);
-
-      // Update report status
       await updateReportStatus(reportId, 'resolved');
     } catch (e) {
-      throw Exception('Failed to resolve report: $e');
+      throw Exception('Lỗi khi xử lý báo cáo: $e');
     }
   }
 
-  // Dismiss report
+  // Bỏ qua báo cáo
   Future<void> dismissReport(String reportId) async {
     try {
       await updateReportStatus(reportId, 'dismissed');
     } catch (e) {
-      throw Exception('Failed to dismiss report: $e');
+      throw Exception('Lỗi khi bỏ qua báo cáo: $e');
     }
   }
 
-  // ============ STATISTICS ============
+  // Thống kê
 
-  // Get dashboard statistics
+  // Lấy thống kê dashboard
   Future<Map<String, int>> getDashboardStats() async {
     try {
       final usersCount = await _firestore.collection('users').count().get();
       final postsCount = await _firestore.collection('posts').count().get();
-      final reportsCount = await _firestore
-          .collection('reports')
-          .where('status', isEqualTo: 'pending')
-          .count()
-          .get();
+      final reportsCount = await _firestore.collection('reports').where('status', isEqualTo: 'pending').count().get();
 
       return {
         'users': usersCount.count ?? 0,
@@ -207,7 +157,7 @@ class AdminService {
         'pendingReports': reportsCount.count ?? 0,
       };
     } catch (e) {
-      throw Exception('Failed to get dashboard stats: $e');
+      throw Exception('Lỗi khi lấy thống kê: $e');
     }
   }
 }

@@ -4,6 +4,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../models/user_model.dart';
 import '../../services/admin_service.dart';
 
+/// Màn hình quản lý người dùng cho Admin
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
 
@@ -22,6 +23,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     _fetchUsers();
   }
 
+  // Tải danh sách người dùng
   Future<void> _fetchUsers() async {
     try {
       setState(() => _loading = true);
@@ -35,13 +37,18 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _showError(e);
+      _showMessage('Lỗi: $e', isError: true);
     }
   }
 
-  void _showError(dynamic e) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+  // Hiển thị thông báo
+  void _showMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : null,
+      ),
+    );
   }
 
   @override
@@ -68,6 +75,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
+  // Hiển thị chi tiết người dùng
   void _showUserDetails(UserModel user) {
     showDialog(
       context: context,
@@ -77,29 +85,34 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _detail('Email', user.email),
-            _detail('Username', '@${user.username}'),
-            _detail('Role', user.role),
-            _detail('Followers', user.followersCount.toString()),
-            _detail('Following', user.followingCount.toString()),
-            _detail('Posts', user.postsCount.toString()),
-            if (user.bio != null) _detail('Bio', user.bio!),
+            _detailRow('Email', user.email),
+            _detailRow('Username', '@${user.username}'),
+            _detailRow('Role', user.role),
+            _detailRow('Followers', user.followersCount.toString()),
+            _detailRow('Following', user.followingCount.toString()),
+            _detailRow('Posts', user.postsCount.toString()),
+            if (user.bio != null) _detailRow('Bio', user.bio!),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
         ],
       ),
     );
   }
 
-  Widget _detail(String label, String value) {
+  // Một dòng thông tin chi tiết
+  Widget _detailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Text('$label: $value'),
     );
   }
 
+  // Xóa người dùng
   Future<void> _deleteUser(UserModel user) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -107,7 +120,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         title: const Text('Xóa tài khoản'),
         content: Text('Bạn có chắc muốn xóa ${user.displayName}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Xóa', style: TextStyle(color: Colors.red)),
@@ -121,17 +137,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     try {
       await _adminService.deleteUser(user.uid);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Đã xóa tài khoản')));
+      _showMessage('Đã xóa tài khoản');
       _fetchUsers();
     } catch (e) {
-      if (mounted) _showError(e);
+      if (mounted) _showMessage('Lỗi: $e', isError: true);
     }
   }
 }
 
-/* ================= USER TILE ================= */
-
+// Card hiển thị thông tin user trong danh sách
 class _UserTile extends StatelessWidget {
   final UserModel user;
   final Function(UserModel) onDetails;
@@ -157,8 +171,10 @@ class _UserTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('@${user.username}'),
-            Text('Tạo: ${timeago.format(user.createdAt, locale: 'vi')}',
-                style: const TextStyle(fontSize: 12)),
+            Text(
+              'Tạo: ${timeago.format(user.createdAt, locale: 'vi')}',
+              style: const TextStyle(fontSize: 12),
+            ),
           ],
         ),
         trailing: Row(
@@ -188,8 +204,7 @@ class _UserTile extends StatelessWidget {
   }
 }
 
-/* ================= ROLE BADGE ================= */
-
+// Badge hiển thị role
 class _RoleBadge extends StatelessWidget {
   final String role;
   const _RoleBadge(this.role);

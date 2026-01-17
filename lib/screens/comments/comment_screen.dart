@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:timeago/timeago.dart' as timeago;
+
 import '../../models/comment_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
-import 'package:timeago/timeago.dart' as timeago;
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:provider/provider.dart';
 
+/// Màn hình bình luận của bài viết
 class CommentScreen extends StatefulWidget {
-  final String postId, postAuthor, postCaption, postOwnerId;
+  final String postId;
+  final String postAuthor;
+  final String postCaption;
+  final String postOwnerId;
+
   const CommentScreen({
     super.key,
     required this.postId,
@@ -27,8 +33,10 @@ class _CommentScreenState extends State<CommentScreen> {
   final _focus = FocusNode();
   final _service = FirestoreService();
   final _notificationService = NotificationService();
-  String? _replyId, _replyName;
+  String? _replyId;     // ID comment đang reply
+  String? _replyName;   // Tên người đang reply
 
+  // Gửi bình luận
   void _submit() async {
     final user = context.read<AuthProvider>().userModel;
     if (_controller.text.trim().isEmpty || user == null) return;
@@ -42,7 +50,7 @@ class _CommentScreenState extends State<CommentScreen> {
       parentCommentId: _replyId,
     );
 
-    // Create notification for post owner (not for self)
+    // Tạo notification cho chủ bài viết (không phải chính mình)
     if (widget.postOwnerId != user.uid) {
       await _notificationService.createCommentNotification(
         fromUserId: user.uid,
@@ -70,15 +78,15 @@ class _CommentScreenState extends State<CommentScreen> {
       ),
       body: Column(
         children: [
+          // Header bài viết
           ListTile(
             leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(
-              widget.postAuthor,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            title: Text(widget.postAuthor, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(widget.postCaption),
           ),
           const Divider(height: 1),
+
+          // Danh sách bình luận
           Expanded(
             child: StreamBuilder<List<CommentModel>>(
               stream: _service.getComments(widget.postId),
@@ -105,16 +113,15 @@ class _CommentScreenState extends State<CommentScreen> {
               },
             ),
           ),
+
+          // Thanh reply
           if (_replyName != null)
             Container(
               color: Colors.blue.withValues(alpha: 0.1),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Text(
-                    'Trả lời @$_replyName',
-                    style: const TextStyle(fontSize: 12),
-                  ),
+                  Text('Trả lời @$_replyName', style: const TextStyle(fontSize: 12)),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close, size: 16),
@@ -123,6 +130,8 @@ class _CommentScreenState extends State<CommentScreen> {
                 ],
               ),
             ),
+
+          // Ô nhập bình luận
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -155,10 +164,12 @@ class _CommentScreenState extends State<CommentScreen> {
   }
 }
 
+/// Widget hiển thị 1 comment
 class _CommentItem extends StatefulWidget {
   final CommentModel comment;
   final String postId;
   final Function(String, String) onReply;
+
   const _CommentItem({
     required this.comment,
     required this.postId,
@@ -170,7 +181,8 @@ class _CommentItem extends StatefulWidget {
 }
 
 class _CommentItemState extends State<_CommentItem> {
-  bool _liked = false, _show = false;
+  bool _liked = false;
+  bool _showReplies = false;
   int _count = 0;
   UserModel? _author;
 
@@ -178,16 +190,18 @@ class _CommentItemState extends State<_CommentItem> {
   void initState() {
     super.initState();
     _count = widget.comment.likesCount;
-    _initialLoad();
+    _loadData();
   }
 
-  void _initialLoad() async {
+  // Load thông tin author và trạng thái like
+  void _loadData() async {
     final user = context.read<AuthProvider>().userModel;
     _author = await FirestoreService().getUser(widget.comment.userId);
     if (user != null) _liked = widget.comment.likedBy.contains(user.uid);
     if (mounted) setState(() {});
   }
 
+  // Toggle like comment
   void _toggleLike() async {
     final uid = context.read<AuthProvider>().userModel?.uid;
     if (uid == null) return;
@@ -214,10 +228,7 @@ class _CommentItemState extends State<_CommentItem> {
             children: [
               Text(
                 _author?.displayName ?? '...',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
               const SizedBox(width: 8),
               Text(
@@ -232,6 +243,7 @@ class _CommentItemState extends State<_CommentItem> {
               Text(widget.comment.text),
               Row(
                 children: [
+                  // Nút like
                   InkWell(
                     onTap: _toggleLike,
                     child: Row(
@@ -242,14 +254,13 @@ class _CommentItemState extends State<_CommentItem> {
                           color: _liked ? Colors.red : Colors.grey,
                         ),
                         if (_count > 0)
-                          Text(
-                            ' $_count',
-                            style: const TextStyle(fontSize: 11),
-                          ),
+                          Text(' $_count', style: const TextStyle(fontSize: 11)),
                       ],
                     ),
                   ),
                   const SizedBox(width: 16),
+
+                  // Nút reply
                   InkWell(
                     onTap: () => widget.onReply(
                       widget.comment.commentId,
@@ -257,10 +268,7 @@ class _CommentItemState extends State<_CommentItem> {
                     ),
                     child: const Text(
                       'Trả lời',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -268,34 +276,34 @@ class _CommentItemState extends State<_CommentItem> {
             ],
           ),
         ),
+
+        // Replies
         StreamBuilder<List<CommentModel>>(
           stream: FirestoreService().getReplies(widget.comment.commentId),
           builder: (context, snap) {
-            final reps = snap.data ?? [];
-            if (reps.isEmpty) return const SizedBox();
+            final replies = snap.data ?? [];
+            if (replies.isEmpty) return const SizedBox();
             return Padding(
               padding: const EdgeInsets.only(left: 48),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (!_show)
+                  if (!_showReplies)
                     TextButton(
-                      onPressed: () => setState(() => _show = true),
+                      onPressed: () => setState(() => _showReplies = true),
                       child: Text(
-                        'Xem ${reps.length} trả lời',
+                        'Xem ${replies.length} trả lời',
                         style: const TextStyle(fontSize: 11),
                       ),
                     ),
-                  if (_show) ...[
-                    ...reps.map(
-                      (r) => _CommentItem(
-                        comment: r,
-                        postId: widget.postId,
-                        onReply: widget.onReply,
-                      ),
-                    ),
+                  if (_showReplies) ...[
+                    ...replies.map((r) => _CommentItem(
+                          comment: r,
+                          postId: widget.postId,
+                          onReply: widget.onReply,
+                        )),
                     TextButton(
-                      onPressed: () => setState(() => _show = false),
+                      onPressed: () => setState(() => _showReplies = false),
                       child: const Text('Ẩn', style: TextStyle(fontSize: 11)),
                     ),
                   ],

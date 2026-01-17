@@ -6,16 +6,17 @@ import '../services/notification_service.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_logger.dart';
 
+/// Provider quản lý thông báo
 class NotificationProvider with ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
   final FirestoreService _firestoreService = FirestoreService();
 
-  List<NotificationModel> _notifications = [];
-  final Map<String, UserModel> _notificationUsers = {}; // Cache user data
-  int _unreadCount = 0;
+  List<NotificationModel> _notifications = [];           // Danh sách thông báo
+  final Map<String, UserModel> _notificationUsers = {};  // Cache thông tin user
+  int _unreadCount = 0;                                  // Số thông báo chưa đọc
   final bool _isLoading = false;
   String? _error;
-  bool _isInitialized = false; // Prevent duplicate initialization
+  bool _isInitialized = false;                           // Tránh init trùng
   String? _currentUserId;
 
   StreamSubscription<List<NotificationModel>>? _notificationSubscription;
@@ -28,27 +29,24 @@ class NotificationProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // ==================== INITIALIZATION ====================
-
-  /// Initialize notification streams for a user
+  // Khởi tạo stream thông báo
   void initializeNotificationStream(String userId) {
-    // Prevent duplicate initialization for same user
+    // Tránh init trùng cho cùng user
     if (_isInitialized && _currentUserId == userId) {
-      AppLogger.info(
-        '[NotificationProvider] Already initialized for user: $userId',
-      );
+      AppLogger.info('[NotificationProvider] Already initialized for user: $userId');
       return;
     }
 
     AppLogger.info('[NotificationProvider] Initializing for user: $userId');
-    // Cancel existing subscriptions
+    
+    // Hủy subscriptions cũ
     _notificationSubscription?.cancel();
     _unreadCountSubscription?.cancel();
 
     _currentUserId = userId;
     _isInitialized = true;
 
-    // Listen to notifications
+    // Lắng nghe thông báo
     _notificationSubscription = _notificationService
         .getNotificationsStream(userId)
         .listen(
@@ -59,7 +57,7 @@ class NotificationProvider with ChangeNotifier {
             _notifications = loadedNotifications;
             notifyListeners();
 
-            // Load user data for notifications
+            // Tải thông tin user
             await _loadNotificationUsers();
           },
           onError: (error) {
@@ -69,7 +67,7 @@ class NotificationProvider with ChangeNotifier {
           },
         );
 
-    // Listen to unread count
+    // Lắng nghe số chưa đọc
     _unreadCountSubscription = _notificationService
         .getUnreadCountStream(userId)
         .listen(
@@ -79,15 +77,12 @@ class NotificationProvider with ChangeNotifier {
             notifyListeners();
           },
           onError: (error) {
-            AppLogger.error(
-              '[NotificationProvider] Unread count error',
-              error: error,
-            );
+            AppLogger.error('[NotificationProvider] Unread count error', error: error);
           },
         );
   }
 
-  /// Load user data for all notification senders
+  // Tải thông tin user của tất cả người gửi notification
   Future<void> _loadNotificationUsers() async {
     final missingUserIds = _notifications
         .map((n) => n.fromUserId)
@@ -115,21 +110,17 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  // ==================== READ OPERATIONS ====================
-
-  /// Get user model for a notification
+  // Lấy thông tin user từ notification
   UserModel? getNotificationUser(String userId) {
     return _notificationUsers[userId];
   }
 
-  // ==================== UPDATE OPERATIONS ====================
-
-  /// Mark single notification as read
+  // Đánh dấu 1 thông báo đã đọc
   Future<void> markAsRead(String notificationId) async {
     try {
       await _notificationService.markAsRead(notificationId);
 
-      // Update local state optimistically
+      // Optimistic update
       final index = _notifications.indexWhere(
         (n) => n.notificationId == notificationId,
       );
@@ -144,7 +135,7 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  /// Mark all notifications as read
+  // Đánh dấu tất cả đã đọc
   Future<void> markAllAsRead(String userId) async {
     try {
       await _notificationService.markAllAsRead(userId);
@@ -161,9 +152,7 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  // ==================== DELETE OPERATIONS ====================
-
-  /// Delete a notification
+  // Xóa 1 thông báo
   Future<void> deleteNotification(String notificationId) async {
     try {
       await _notificationService.deleteNotification(notificationId);
@@ -177,7 +166,7 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  /// Delete all notifications
+  // Xóa tất cả thông báo
   Future<void> deleteAllNotifications(String userId) async {
     try {
       await _notificationService.deleteAllNotifications(userId);
@@ -192,9 +181,7 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  // ==================== CLEANUP ====================
-
-  /// Clear all data (on logout)
+  // Xóa dữ liệu (khi logout)
   void clear() {
     _notificationSubscription?.cancel();
     _unreadCountSubscription?.cancel();
@@ -207,7 +194,7 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Clear error
+  // Xóa lỗi
   void clearError() {
     _error = null;
     notifyListeners();

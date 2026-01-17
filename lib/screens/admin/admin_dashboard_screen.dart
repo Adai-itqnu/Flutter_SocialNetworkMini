@@ -7,6 +7,7 @@ import 'admin_users_screen.dart';
 import 'admin_posts_screen.dart';
 import 'admin_reports_screen.dart';
 
+/// Màn hình dashboard chính của Admin
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -25,6 +26,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _loadStats();
   }
 
+  // Tải thống kê dashboard
   Future<void> _loadStats() async {
     try {
       setState(() => _loading = true);
@@ -38,9 +40,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Lỗi tải dữ liệu: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi tải dữ liệu: $e')),
+      );
     }
   }
 
@@ -48,6 +50,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().userModel;
 
+    // Kiểm tra quyền admin
     if (user == null || user.role != 'admin') {
       return const _NoPermissionView();
     }
@@ -78,15 +81,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // AppBar với nút đăng xuất
   AppBar _buildAppBar() {
     return AppBar(
       title: const Text('Bảng điều khiển Admin'),
       backgroundColor: const Color(0xFF006CFF),
       foregroundColor: Colors.white,
-      actions: [IconButton(icon: const Icon(Icons.logout), onPressed: _logout)],
+      actions: [
+        IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
+      ],
     );
   }
 
+  // Xử lý đăng xuất
   Future<void> _logout() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -111,6 +118,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  // Grid thống kê
   Widget _buildStats() {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_stats == null) return const SizedBox();
@@ -144,6 +152,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // Menu điều hướng
   Widget _buildMenu() {
     return Column(
       children: [
@@ -183,6 +192,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // Tiêu đề section
   Widget _sectionTitle(String text) {
     return Text(
       text,
@@ -191,8 +201,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
-/* ===================== SUB WIDGETS ===================== */
-
+// Header hiển thị thông tin admin
 class _AdminHeader extends StatelessWidget {
   final String name;
   const _AdminHeader(this.name);
@@ -212,11 +221,7 @@ class _AdminHeader extends StatelessWidget {
           const CircleAvatar(
             radius: 30,
             backgroundColor: Colors.white24,
-            child: Icon(
-              Icons.admin_panel_settings,
-              color: Colors.white,
-              size: 30,
-            ),
+            child: Icon(Icons.admin_panel_settings, color: Colors.white, size: 30),
           ),
           const SizedBox(width: 16),
           Column(
@@ -230,10 +235,7 @@ class _AdminHeader extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const Text(
-                'Quản trị viên',
-                style: TextStyle(color: Colors.white70),
-              ),
+              const Text('Quản trị viên', style: TextStyle(color: Colors.white70)),
             ],
           ),
         ],
@@ -242,6 +244,7 @@ class _AdminHeader extends StatelessWidget {
   }
 }
 
+// Card hiển thị số liệu thống kê
 class _StatCard extends StatelessWidget {
   final String title;
   final int? value;
@@ -273,11 +276,7 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '${value ?? 0}',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color),
           ),
           Text(title, style: const TextStyle(color: Colors.grey)),
         ],
@@ -286,6 +285,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+// Card menu điều hướng
 class _MenuCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -328,10 +328,7 @@ class _MenuCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
                   Text(subtitle, style: const TextStyle(color: Colors.grey)),
                 ],
               ),
@@ -344,6 +341,7 @@ class _MenuCard extends StatelessWidget {
   }
 }
 
+// View hiển thị khi không có quyền truy cập
 class _NoPermissionView extends StatelessWidget {
   const _NoPermissionView();
 

@@ -1,14 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Model bình luận trên bài viết
 class CommentModel {
-  final String commentId;
-  final String postId;
-  final String userId;
-  final String text;
-  final int likesCount;
-  final List<String> likedBy; // List of user IDs who liked this comment
-  final String? parentCommentId; // ID of parent comment if this is a reply
-  final DateTime createdAt;
+  final String commentId;          // ID bình luận
+  final String postId;             // ID bài viết
+  final String userId;             // ID người bình luận
+  final String text;               // Nội dung bình luận
+  final int likesCount;            // Số lượt thích
+  final List<String> likedBy;      // Danh sách userId đã thích
+  final String? parentCommentId;   // ID comment cha (nếu là reply)
+  final DateTime createdAt;        // Thời gian tạo
 
   CommentModel({
     required this.commentId,
@@ -21,7 +22,7 @@ class CommentModel {
     required this.createdAt,
   });
 
-  // Convert CommentModel to JSON for Firestore
+  // Chuyển sang JSON để lưu Firestore
   Map<String, dynamic> toJson() {
     return {
       'commentId': commentId,
@@ -35,7 +36,7 @@ class CommentModel {
     };
   }
 
-  // Create CommentModel from Firestore document
+  // Tạo từ Firestore document
   factory CommentModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return CommentModel(
@@ -50,7 +51,7 @@ class CommentModel {
     );
   }
 
-  // Create CommentModel from JSON
+  // Tạo từ JSON
   factory CommentModel.fromJson(Map<String, dynamic> json) {
     return CommentModel(
       commentId: json['commentId'] ?? '',

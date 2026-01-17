@@ -27,6 +27,7 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
     _loadSavedPosts();
   }
 
+  // Tải danh sách bài viết đã lưu
   Future<void> _loadSavedPosts() async {
     setState(() => _isLoading = true);
 
@@ -36,28 +37,19 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
 
       final posts = await _firestoreService.getSavedPosts(currentUser.uid);
 
-      // Load authors for each post
+      // Load thông tin tác giả
       for (final post in posts) {
         if (!_authorsCache.containsKey(post.userId)) {
           final author = await _firestoreService.getUser(post.userId);
-          if (author != null) {
-            _authorsCache[post.userId] = author;
-          }
+          if (author != null) _authorsCache[post.userId] = author;
         }
       }
 
-      if (mounted) {
-        setState(() {
-          _savedPosts = posts;
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() { _savedPosts = posts; _isLoading = false; });
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
       }
     }
   }
@@ -67,17 +59,8 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-        title: const Text(
-          'Bài viết đã lưu',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        backgroundColor: Colors.white, elevation: 0, iconTheme: const IconThemeData(color: Colors.black),
+        title: const Text('Bài viết đã lưu', style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w600)),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -89,48 +72,23 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
                     itemCount: _savedPosts.length,
                     itemBuilder: (context, index) {
                       final post = _savedPosts[index];
-                      final author = _authorsCache[post.userId];
-
-                      return PostCard(
-                        post: post,
-                        author: author,
-                      );
+                      return PostCard(post: post, author: _authorsCache[post.userId]);
                     },
                   ),
                 ),
     );
   }
 
+  // Trạng thái chưa lưu bài nào
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.bookmark_border,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Chưa có bài viết đã lưu',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Nhấn biểu tượng lưu trên bài viết\nđể lưu lại xem sau',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
-          ),
-        ],
-      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.bookmark_border, size: 80, color: Colors.grey[400]),
+        const SizedBox(height: 16),
+        Text('Chưa có bài viết đã lưu', style: TextStyle(fontSize: 18, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        Text('Nhấn biểu tượng lưu trên bài viết\nđể lưu lại xem sau', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+      ]),
     );
   }
 }

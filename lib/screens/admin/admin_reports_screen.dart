@@ -7,6 +7,7 @@ import '../../models/post_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/firestore_service.dart';
 
+/// Màn hình quản lý báo cáo vi phạm cho Admin
 class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
 
@@ -49,6 +50,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     );
   }
 
+  // AppBar với các filter chip
   AppBar _buildAppBar() {
     return AppBar(
       title: const Text('Báo cáo vi phạm'),
@@ -61,6 +63,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     );
   }
 
+  // Các chip lọc trạng thái
   Widget _buildFilters() {
     return Container(
       color: Colors.white,
@@ -95,8 +98,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   }
 }
 
-/* ================= REPORT CARD ================= */
-
+// Card hiển thị 1 báo cáo
 class _ReportCard extends StatelessWidget {
   final ReportModel report;
   final FirestoreService firestore;
@@ -132,6 +134,7 @@ class _ReportCard extends StatelessWidget {
     );
   }
 
+  // Tải thông tin người báo cáo, chủ bài viết và bài viết
   Future<_ReportData> _loadData() async {
     final reporter = await firestore.getUser(report.reportedBy);
     final owner = await firestore.getUser(report.postOwnerId);
@@ -140,8 +143,7 @@ class _ReportCard extends StatelessWidget {
   }
 }
 
-/* ================= UI BLOCKS ================= */
-
+// Header với trạng thái và thời gian
 class _Header extends StatelessWidget {
   final ReportModel r;
   const _Header(this.r);
@@ -172,6 +174,7 @@ class _Header extends StatelessWidget {
   }
 }
 
+// Thông tin người báo cáo và chủ bài viết
 class _Info extends StatelessWidget {
   final UserModel? reporter;
   final UserModel? owner;
@@ -192,6 +195,7 @@ class _Info extends StatelessWidget {
   }
 }
 
+// Lý do báo cáo
 class _Reason extends StatelessWidget {
   final String text;
   const _Reason(this.text);
@@ -209,6 +213,7 @@ class _Reason extends StatelessWidget {
   }
 }
 
+// Preview bài viết bị báo cáo
 class _PostPreview extends StatelessWidget {
   final ReportModel r;
   final PostModel? post;
@@ -232,10 +237,7 @@ class _PostPreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Bài viết bị báo cáo',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          const Text('Bài viết bị báo cáo', style: TextStyle(fontWeight: FontWeight.bold)),
           if (caption.isNotEmpty)
             Text(caption, maxLines: 2, overflow: TextOverflow.ellipsis),
           if (image != null)
@@ -254,6 +256,7 @@ class _PostPreview extends StatelessWidget {
   }
 }
 
+// Các nút hành động: Xóa bài viết / Bỏ qua
 class _Actions extends StatelessWidget {
   final ReportModel report;
   final AdminService service;
@@ -269,10 +272,7 @@ class _Actions extends StatelessWidget {
           Expanded(
             child: ElevatedButton.icon(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
-              label: const Text(
-                'Xóa bài viết',
-                style: TextStyle(color: Colors.red),
-              ),
+              label: const Text('Xóa bài viết', style: TextStyle(color: Colors.red)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red.shade50,
                 elevation: 0,
@@ -297,8 +297,7 @@ class _Actions extends StatelessWidget {
   }
 }
 
-/* ================= HELPERS ================= */
-
+// Data class chứa thông tin đã load
 class _ReportData {
   final UserModel? reporter;
   final UserModel? owner;
@@ -306,8 +305,10 @@ class _ReportData {
   _ReportData(this.reporter, this.owner, this.post);
 }
 
+// Card loading
 class _LoadingCard extends StatelessWidget {
   const _LoadingCard();
+
   @override
   Widget build(BuildContext context) {
     return const Card(
@@ -320,8 +321,10 @@ class _LoadingCard extends StatelessWidget {
   }
 }
 
+// View khi không có báo cáo
 class _EmptyView extends StatelessWidget {
   const _EmptyView();
+
   @override
   Widget build(BuildContext context) {
     return const Center(
@@ -337,8 +340,7 @@ class _EmptyView extends StatelessWidget {
   }
 }
 
-/* ================= STATUS HELPERS ================= */
-
+// Helpers cho status
 Color _statusColor(String s) {
   switch (s) {
     case 'pending':

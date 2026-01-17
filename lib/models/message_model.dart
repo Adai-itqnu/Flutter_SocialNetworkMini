@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Model tin nhắn trong cuộc trò chuyện
 class MessageModel {
-  final String messageId;
-  final String senderId;
-  final String text;
-  final DateTime timestamp;
-  final String type; // "text", "image", "video" etc.
+  final String messageId;   // ID tin nhắn
+  final String senderId;    // ID người gửi
+  final String text;        // Nội dung (text hoặc [IMAGE]url)
+  final DateTime timestamp; // Thời gian gửi
+  final String type;        // Loại: "text", "image", "video"
 
   MessageModel({
     required this.messageId,
@@ -15,6 +16,7 @@ class MessageModel {
     this.type = 'text',
   });
 
+  // Chuyển sang JSON để lưu Firestore
   Map<String, dynamic> toJson() {
     return {
       'messageId': messageId,
@@ -25,6 +27,7 @@ class MessageModel {
     };
   }
 
+  // Tạo từ Firestore document
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return MessageModel(
@@ -36,6 +39,7 @@ class MessageModel {
     );
   }
 
+  // Tạo từ JSON
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     return MessageModel(
       messageId: json['messageId'] ?? '',

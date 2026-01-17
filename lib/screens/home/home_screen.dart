@@ -13,6 +13,9 @@ import '../message/messages_screen.dart';
 import '../follow/my_follow_screen.dart';
 import '../profile/profile_screen.dart';
 
+/// Màn hình chính của ứng dụng
+/// Chứa 4 tab: Home Feed, Search, Follow, Profile
+/// AppBar có logo, chat button và notification button
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -26,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   final ChatService _chatService = ChatService();
 
-  // For hide-on-scroll title
+  // Trạng thái ẩn/hiện title khi scroll
   bool _showTitle = true;
   double _lastScrollOffset = 0;
 
@@ -44,18 +47,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
-  void _onScroll() {
-    final offset = _scrollController.offset;
-    if (offset > _lastScrollOffset && offset > 50) {
-      // Scrolling down
-      if (_showTitle) setState(() => _showTitle = false);
-    } else if (offset < _lastScrollOffset) {
-      // Scrolling up
-      if (!_showTitle) setState(() => _showTitle = true);
-    }
-    _lastScrollOffset = offset;
-  }
-
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
@@ -63,8 +54,23 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // Ẩn/hiện title khi scroll
+  void _onScroll() {
+    final offset = _scrollController.offset;
+    if (offset > _lastScrollOffset && offset > 50) {
+      // Scroll xuống -> ẩn title
+      if (_showTitle) setState(() => _showTitle = false);
+    } else if (offset < _lastScrollOffset) {
+      // Scroll lên -> hiện title
+      if (!_showTitle) setState(() => _showTitle = true);
+    }
+    _lastScrollOffset = offset;
+  }
+
+  // Xử lý khi tap vào item trong bottom nav
   Future<void> _onNavTapped(int index) async {
     if (index == 2) {
+      // Nút "+" tạo bài viết
       setState(() => _isAddPressed = true);
       await _openCreateOptions();
       setState(() => _isAddPressed = false);
@@ -74,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final stackIndex = index < 2 ? index : index - 1;
 
     if (_selectedIndex == stackIndex && stackIndex == 0) {
-      // Nếu đang ở Home và nhấn Home tiếp -> cuộn lên đầu và load lại
+      // Tap lại Home -> scroll lên đầu
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           0,
@@ -82,13 +88,12 @@ class _HomeScreenState extends State<HomeScreen> {
           curve: Curves.easeOut,
         );
       }
-      // Gọi initializePostStream (hoặc chỉ scroll lên vì stream tự cập nhật)
-      // context.read<PostProvider>().initializePostStream();
     } else if (_selectedIndex != stackIndex) {
       setState(() => _selectedIndex = stackIndex);
     }
   }
 
+  // Hiện bottom sheet chọn loại bài viết
   Future<void> _openCreateOptions() {
     return showModalBottomSheet(
       context: context,
@@ -119,198 +124,164 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: _showTitle ? 0 : 0.5,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: ClipOval(
-            child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
-          ),
-        ),
-        title: AnimatedOpacity(
-          opacity: _showTitle ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 200),
-          child: const Text(
-            'SNMini',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          // Chat icon with unread count badge
-          Consumer<AuthProvider>(
-            builder: (context, authProvider, _) {
-              final currentUserId = authProvider.userModel?.uid;
-              if (currentUserId == null) {
-                return IconButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const MessagesScreen()),
-                  ),
-                  icon: const Icon(
-                    Icons.chat_bubble_outline,
-                    color: Colors.black,
-                  ),
-                );
-              }
-
-              return StreamBuilder<int>(
-                stream: _chatService.getTotalUnreadCountStream(currentUserId),
-                builder: (context, snapshot) {
-                  final unreadCount = snapshot.data ?? 0;
-
-                  return IconButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const MessagesScreen()),
-                    ),
-                    icon: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Icon(
-                          Icons.chat_bubble_outline,
-                          color: Colors.black,
-                        ),
-                        if (unreadCount > 0)
-                          Positioned(
-                            right: -6,
-                            top: -6,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 16,
-                                minHeight: 16,
-                              ),
-                              child: Text(
-                                unreadCount > 99
-                                    ? '99+'
-                                    : unreadCount.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-          Consumer<NotificationProvider>(
-            builder: (context, notificationProvider, _) {
-              final unreadCount = notificationProvider.unreadCount;
-
-              return IconButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-                icon: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(
-                      Icons.notifications_outlined,
-                      color: Colors.black,
-                    ),
-                    if (unreadCount > 0)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 18,
-                            minHeight: 18,
-                          ),
-                          child: Text(
-                            unreadCount > 99 ? '99+' : '$unreadCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      // Body: IndexedStack cho tất cả tab, bottom nav luôn cố định
+      appBar: _buildAppBar(),
       body: IndexedStack(index: _selectedIndex, children: _tabs),
-      // Menu cố định (hiển thị luôn)
-      bottomNavigationBar: Container(
-        height: 80, // Tăng height để cân đối hơn
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Colors.grey.shade300, width: 0.5),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  // AppBar với logo, chat và notification
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: _showTitle ? 0 : 0.5,
+      leading: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ClipOval(
+          child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
+        ),
+      ),
+      title: AnimatedOpacity(
+        opacity: _showTitle ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 200),
+        child: const Text(
+          'SNMini',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        child: SafeArea(
-          child: Center(
-            child: Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceEvenly, // Thay đổi để spacing đều hơn
-              children: [
-                _buildNavItem(
-                  index: 0,
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                ),
-                _buildNavItem(
-                  index: 1,
-                  icon: Icons.search_outlined,
-                  activeIcon: Icons.search,
-                ),
-                _buildAddButton(),
-                _buildNavItem(
-                  index: 3,
-                  icon: Icons.group_outlined,
-                  activeIcon: Icons.group,
-                ),
-                _buildProfileItem(index: 4),
-              ],
+      ),
+      centerTitle: true,
+      actions: [
+        _buildChatButton(),
+        _buildNotificationButton(),
+      ],
+    );
+  }
+
+  // Nút chat với badge số tin chưa đọc
+  Widget _buildChatButton() {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        final currentUserId = authProvider.userModel?.uid;
+        if (currentUserId == null) {
+          return IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MessagesScreen()),
             ),
+            icon: const Icon(Icons.chat_bubble_outline, color: Colors.black),
+          );
+        }
+
+        return StreamBuilder<int>(
+          stream: _chatService.getTotalUnreadCountStream(currentUserId),
+          builder: (context, snapshot) {
+            final unreadCount = snapshot.data ?? 0;
+
+            return IconButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MessagesScreen()),
+              ),
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.chat_bubble_outline, color: Colors.black),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: -6,
+                      top: -6,
+                      child: _buildBadge(unreadCount),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Nút notification với badge
+  Widget _buildNotificationButton() {
+    return Consumer<NotificationProvider>(
+      builder: (context, notificationProvider, _) {
+        final unreadCount = notificationProvider.unreadCount;
+
+        return IconButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+          ),
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.notifications_outlined, color: Colors.black),
+              if (unreadCount > 0)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: _buildBadge(unreadCount),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Badge hiển thị số
+  Widget _buildBadge(int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+      child: Text(
+        count > 99 ? '99+' : count.toString(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  // Bottom navigation bar
+  Widget _buildBottomNav() {
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade300, width: 0.5)),
+      ),
+      child: SafeArea(
+        child: Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNavItem(index: 0, icon: Icons.home_outlined, activeIcon: Icons.home),
+              _buildNavItem(index: 1, icon: Icons.search_outlined, activeIcon: Icons.search),
+              _buildAddButton(),
+              _buildNavItem(index: 3, icon: Icons.group_outlined, activeIcon: Icons.group),
+              _buildProfileItem(index: 4),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // Inline menu helpers (cố định, với mapping selected cho index 3/4)
+  // Item trong bottom nav
   Widget _buildNavItem({
     required int index,
     required IconData icon,
     required IconData activeIcon,
   }) {
-    // Mapping nav index sang stack index để check selected
     final stackIndex = index < 2 ? index : index - 1;
     final bool selected = _selectedIndex == stackIndex;
     final Color iconColor = selected ? Colors.black : Colors.black54;
@@ -337,27 +308,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Nút "+" tạo bài viết
   Widget _buildAddButton() {
     final double scale = _isAddPressed ? 0.9 : 1.0;
-
-    final child = AnimatedContainer(
-      duration: const Duration(milliseconds: 120),
-      curve: Curves.easeOut,
-      width: 34,
-      height: 34,
-      transform: Matrix4.identity()..scale(scale),
-      decoration: BoxDecoration(
-        color: _isAddPressed
-            ? Colors.black.withOpacity(0.04)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(
-          color: Colors.black,
-          width: _isAddPressed ? 2.2 : 1.8,
-        ),
-      ),
-      child: const Icon(Icons.add, size: 22, color: Colors.black),
-    );
 
     return Material(
       type: MaterialType.transparency,
@@ -366,11 +319,27 @@ class _HomeScreenState extends State<HomeScreen> {
         splashColor: Colors.black.withOpacity(0.08),
         highlightColor: Colors.black.withOpacity(0.02),
         onTap: () => _onNavTapped(2),
-        child: child,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          width: 34,
+          height: 34,
+          transform: Matrix4.identity()..scale(scale),
+          decoration: BoxDecoration(
+            color: _isAddPressed ? Colors.black.withOpacity(0.04) : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: Colors.black,
+              width: _isAddPressed ? 2.2 : 1.8,
+            ),
+          ),
+          child: const Icon(Icons.add, size: 22, color: Colors.black),
+        ),
       ),
     );
   }
 
+  // Avatar profile trong bottom nav
   Widget _buildProfileItem({required int index}) {
     final stackIndex = index - 1;
     final bool selected = _selectedIndex == stackIndex;
@@ -416,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Nội dung tab Home - Load từ Firebase
+  // Tab Home - hiển thị danh sách bài viết
   Widget _buildHomeContent() {
     return Consumer2<PostProvider, AuthProvider>(
       builder: (context, postProvider, authProvider, _) {
@@ -425,60 +394,44 @@ class _HomeScreenState extends State<HomeScreen> {
         return CustomScrollView(
           controller: _scrollController,
           slivers: [
-            // Posts from Firebase
+            // Loading
             if (postProvider.isLoading)
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
               )
+            // Chưa có bài viết
             else if (posts.isEmpty)
               SliverFillRemaining(
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.photo_library_outlined,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
+                      Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey[400]),
                       const SizedBox(height: 16),
-                      Text(
-                        'Chưa có bài viết nào',
-                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                      ),
+                      Text('Chưa có bài viết nào', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
                       const SizedBox(height: 8),
-                      Text(
-                        'Hãy tạo bài viết đầu tiên!',
-                        style: TextStyle(color: Colors.grey[500]),
-                      ),
+                      Text('Hãy tạo bài viết đầu tiên!', style: TextStyle(color: Colors.grey[500])),
                     ],
                   ),
                 ),
               )
+            // Danh sách bài viết
             else
               SliverList(
-                delegate: SliverChildBuilderDelegate(childCount: posts.length, (
-                  context,
-                  index,
-                ) {
-                  final post = posts[index];
-                  final author = postProvider.getPostAuthor(post.userId);
+                delegate: SliverChildBuilderDelegate(
+                  childCount: posts.length,
+                  (context, index) {
+                    final post = posts[index];
+                    final author = postProvider.getPostAuthor(post.userId);
 
-                  return Column(
-                    children: [
-                      PostCard(
-                        key: ValueKey(post.postId),
-                        post: post,
-                        author: author,
-                      ),
-                      Container(
-                        height: 8,
-                        width: double.infinity,
-                        color: Colors.grey.shade200,
-                      ),
-                    ],
-                  );
-                }),
+                    return Column(
+                      children: [
+                        PostCard(key: ValueKey(post.postId), post: post, author: author),
+                        Container(height: 8, width: double.infinity, color: Colors.grey.shade200),
+                      ],
+                    );
+                  },
+                ),
               ),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],

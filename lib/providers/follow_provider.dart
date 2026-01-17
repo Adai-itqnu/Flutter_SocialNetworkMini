@@ -4,11 +4,12 @@ import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import 'user_provider.dart';
 
+/// Provider quản lý follow/unfollow giữa các người dùng
 class FollowProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
   final NotificationService _notificationService = NotificationService();
 
-  // Reference to UserProvider for refreshing user data after follow/unfollow
+  // Reference tới UserProvider để refresh data sau follow/unfollow
   UserProvider? _userProvider;
 
   void setUserProvider(UserProvider userProvider) {
@@ -16,10 +17,10 @@ class FollowProvider with ChangeNotifier {
   }
 
   // State
-  List<UserModel> _followers = [];
-  List<UserModel> _following = [];
-  List<UserModel> _suggestedUsers = []; // NEW: All users for suggestions
-  Map<String, bool> _followingStatus = {}; // userId -> isFollowing
+  List<UserModel> _followers = [];              // Danh sách người theo dõi mình
+  List<UserModel> _following = [];              // Danh sách mình đang theo dõi
+  List<UserModel> _suggestedUsers = [];         // Gợi ý người dùng
+  Map<String, bool> _followingStatus = {};      // Cache trạng thái follow: userId -> isFollowing
   bool _isLoading = false;
   String? _error;
   String? _currentUserId;
@@ -27,20 +28,20 @@ class FollowProvider with ChangeNotifier {
   // Getters
   List<UserModel> get followers => _followers;
   List<UserModel> get following => _following;
-  List<UserModel> get suggestedUsers => _suggestedUsers; // NEW
+  List<UserModel> get suggestedUsers => _suggestedUsers;
   bool get isLoading => _isLoading;
   String? get error => _error;
   int get followersCount => _followers.length;
   int get followingCount => _following.length;
 
-  /// Check if current user is following target user
+  // Kiểm tra có đang follow user không
   bool isFollowing(String targetUserId) {
     return _followingStatus[targetUserId] ?? false;
   }
 
-  /// Initialize follow data for a user
+  // Tải dữ liệu follow
   Future<void> loadFollowData(String userId, {bool forceReload = false}) async {
-    // Skip if already loaded and not forcing reload
+    // Bỏ qua nếu đã load và không force
     if (!forceReload && _currentUserId == userId && _followers.isNotEmpty) {
       return;
     }
@@ -51,11 +52,11 @@ class FollowProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Get followers and following IDs
+      // Lấy danh sách ID followers và following
       final followerIds = await _firestoreService.getFollowers(userId);
       final followingIds = await _firestoreService.getFollowing(userId);
 
-      // Load user data for followers (exclude admin)
+      // Load thông tin followers (bỏ qua admin)
       final followers = <UserModel>[];
       for (final uid in followerIds) {
         final user = await _firestoreService.getUser(uid);
@@ -64,7 +65,7 @@ class FollowProvider with ChangeNotifier {
         }
       }
 
-      // Load user data for following (exclude admin)
+      // Load thông tin following (bỏ qua admin)
       final following = <UserModel>[];
       for (final uid in followingIds) {
         final user = await _firestoreService.getUser(uid);
@@ -74,7 +75,7 @@ class FollowProvider with ChangeNotifier {
         }
       }
 
-      // Check if current user follows each follower (for "follow back" status)
+      // Check xem đã follow lại followers chưa (cho nút "follow back")
       for (final follower in followers) {
         if (!_followingStatus.containsKey(follower.uid)) {
           final isFollowing = await _firestoreService.isFollowing(
@@ -96,10 +97,10 @@ class FollowProvider with ChangeNotifier {
     }
   }
 
-  /// Follow a user
+  // Follow một user
   Future<bool> followUser(String currentUserId, String targetUserId) async {
     if (_followingStatus[targetUserId] == true) {
-      return true; // Already following
+      return true; // Đã follow rồi
     }
 
     // Optimistic update
@@ -109,25 +110,25 @@ class FollowProvider with ChangeNotifier {
     try {
       await _firestoreService.followUser(currentUserId, targetUserId);
 
-      // Create follow notification
+      // Tạo notification follow
       await _notificationService.createFollowNotification(
         fromUserId: currentUserId,
         toUserId: targetUserId,
       );
 
-      // Add to following list if user data available
+      // Thêm vào danh sách following nếu có data
       final targetUser = await _firestoreService.getUser(targetUserId);
       if (targetUser != null && !_following.any((u) => u.uid == targetUserId)) {
         _following.add(targetUser);
         notifyListeners();
       }
 
-      // Reload user data to update followingCount on profile
+      // Reload user data để cập nhật followingCount
       _userProvider?.loadUser(currentUserId);
 
       return true;
     } catch (e) {
-      // Revert on error
+      // Revert nếu lỗi
       _followingStatus[targetUserId] = false;
       _error = e.toString();
       notifyListeners();
@@ -135,10 +136,10 @@ class FollowProvider with ChangeNotifier {
     }
   }
 
-  /// Unfollow a user
+  // Unfollow một user
   Future<bool> unfollowUser(String currentUserId, String targetUserId) async {
     if (_followingStatus[targetUserId] == false) {
-      return true; // Not following
+      return true; // Chưa follow
     }
 
     // Optimistic update
@@ -148,16 +149,16 @@ class FollowProvider with ChangeNotifier {
     try {
       await _firestoreService.unfollowUser(currentUserId, targetUserId);
 
-      // Remove from following list
+      // Xóa khỏi danh sách following
       _following.removeWhere((u) => u.uid == targetUserId);
       notifyListeners();
 
-      // Reload user data to update followingCount on profile
+      // Reload user data để cập nhật followingCount
       _userProvider?.loadUser(currentUserId);
 
       return true;
     } catch (e) {
-      // Revert on error
+      // Revert nếu lỗi
       _followingStatus[targetUserId] = true;
       _error = e.toString();
       notifyListeners();
@@ -165,7 +166,7 @@ class FollowProvider with ChangeNotifier {
     }
   }
 
-  /// Toggle follow status
+  // Toggle trạng thái follow
   Future<bool> toggleFollow(String currentUserId, String targetUserId) async {
     if (isFollowing(targetUserId)) {
       return await unfollowUser(currentUserId, targetUserId);
@@ -174,7 +175,7 @@ class FollowProvider with ChangeNotifier {
     }
   }
 
-  /// Check follow status for a specific user (from Firestore)
+  // Kiểm tra trạng thái follow (từ Firestore)
   Future<bool> checkFollowStatus(
     String currentUserId,
     String targetUserId,
@@ -192,7 +193,7 @@ class FollowProvider with ChangeNotifier {
     return isFollowing;
   }
 
-  /// Clear data (on logout)
+  // Xóa dữ liệu (khi logout)
   void clear() {
     _followers = [];
     _following = [];
@@ -203,17 +204,17 @@ class FollowProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load suggested users (all users except current user and admin)
+  // Tải gợi ý người dùng (tất cả users trừ current user và admin)
   Future<void> loadSuggestedUsers(String currentUserId) async {
     try {
       final allUsers = await _firestoreService.getAllUsers(limit: 50);
 
-      // Filter out current user and admin users
+      // Lọc bỏ current user và admin
       _suggestedUsers = allUsers
           .where((u) => u.uid != currentUserId && u.role != 'admin')
           .toList();
 
-      // Check follow status for suggested users
+      // Kiểm tra trạng thái follow
       for (final user in _suggestedUsers) {
         if (!_followingStatus.containsKey(user.uid)) {
           final isFollowing = await _firestoreService.isFollowing(
@@ -231,7 +232,7 @@ class FollowProvider with ChangeNotifier {
     }
   }
 
-  /// Refresh data
+  // Refresh tất cả dữ liệu
   Future<void> refresh(String userId) async {
     await loadFollowData(userId, forceReload: true);
     await loadSuggestedUsers(userId);

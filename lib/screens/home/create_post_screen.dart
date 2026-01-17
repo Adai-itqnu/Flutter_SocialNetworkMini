@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/post_provider.dart';
 import '../../services/imgbb_service.dart';
 
+/// Màn hình tạo bài viết mới
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
 
@@ -18,19 +19,20 @@ class CreatePostScreen extends StatefulWidget {
 }
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
+  // Controllers
   final TextEditingController _captionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
-  // Support multiple images and videos
+  // State
   List<XFile> _selectedMedia = [];
   bool _isUploading = false;
   double _uploadProgress = 0.0;
   PostVisibility _selectedVisibility = PostVisibility.public;
-  
-  // Imgbb 
-  static const int maxMediaCount = 10; // Số lượng ảnh
-  static const int maxFileSizeMB = 10; // Dung lượng mỗi ảnh
-  static const int maxTotalSizeMB = 50; // Tổng dung lượng
+
+  // Giới hạn upload (ImgBB)
+  static const int maxMediaCount = 10;
+  static const int maxFileSizeMB = 10;
+  static const int maxTotalSizeMB = 50;
 
   bool get _canPost =>
       _captionController.text.trim().isNotEmpty || _selectedMedia.isNotEmpty;
@@ -47,71 +49,65 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     super.dispose();
   }
 
-  /// Pick multiple images from gallery
+  // Chọn ảnh từ thư viện
   Future<void> _pickFromGallery() async {
     if (_selectedMedia.length >= maxMediaCount) {
-      _showLimitMessage('Tối đa $maxMediaCount ảnh');
+      _showMessage('Tối đa $maxMediaCount ảnh', isError: false);
       return;
     }
 
     try {
-      final List<XFile> images = await _picker.pickMultiImage(
-        imageQuality: 85,
-      );
-
-      // Limit to remaining slots
+      final images = await _picker.pickMultiImage(imageQuality: 85);
       final remainingSlots = maxMediaCount - _selectedMedia.length;
       final imagesToAdd = images.take(remainingSlots).toList();
 
       if (imagesToAdd.isNotEmpty) {
         await _validateAndAddMedia(imagesToAdd);
       }
-      
+
       if (images.length > remainingSlots) {
-        _showLimitMessage('Chỉ thêm được $remainingSlots ảnh nữa');
+        _showMessage('Chỉ thêm được $remainingSlots ảnh nữa', isError: false);
       }
     } catch (e) {
-      _showErrorMessage('Lỗi khi chọn ảnh: $e');
+      _showMessage('Lỗi khi chọn ảnh: $e', isError: true);
     }
   }
 
-  /// Take photo from camera
+  // Chụp ảnh từ camera
   Future<void> _takePhoto() async {
     if (_selectedMedia.length >= maxMediaCount) {
-      _showLimitMessage('Tối đa $maxMediaCount ảnh');
+      _showMessage('Tối đa $maxMediaCount ảnh', isError: false);
       return;
     }
 
     try {
-      final XFile? photo = await _picker.pickImage(
+      final photo = await _picker.pickImage(
         source: ImageSource.camera,
         imageQuality: 85,
       );
-
       if (photo != null) {
         await _validateAndAddMedia([photo]);
       }
     } catch (e) {
-      _showErrorMessage('Lỗi khi chụp ảnh: $e');
+      _showMessage('Lỗi khi chụp ảnh: $e', isError: true);
     }
   }
 
-  /// Validate file sizes and add to selected media
+  // Kiểm tra dung lượng file và thêm vào danh sách
   Future<void> _validateAndAddMedia(List<XFile> files) async {
     List<XFile> validFiles = [];
-    
+
     for (final file in files) {
       final fileSize = await file.length();
       final fileSizeMB = fileSize / (1024 * 1024);
 
+      // Kiểm tra dung lượng từng file
       if (fileSizeMB > maxFileSizeMB) {
-        _showLimitMessage(
-          '${file.name} vượt quá ${maxFileSizeMB}MB, đã bỏ qua',
-        );
+        _showMessage('${file.name} vượt quá ${maxFileSizeMB}MB', isError: false);
         continue;
       }
 
-      // Calculate total size
+      // Tính tổng dung lượng
       int totalSize = fileSize;
       for (final existing in _selectedMedia) {
         totalSize += await existing.length();
@@ -121,7 +117,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
 
       if (totalSize / (1024 * 1024) > maxTotalSizeMB) {
-        _showLimitMessage('Tổng dung lượng vượt quá ${maxTotalSizeMB}MB');
+        _showMessage('Tổng dung lượng vượt quá ${maxTotalSizeMB}MB', isError: false);
         break;
       }
 
@@ -129,43 +125,29 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
 
     if (validFiles.isNotEmpty) {
-      setState(() {
-        _selectedMedia.addAll(validFiles);
-      });
+      setState(() => _selectedMedia.addAll(validFiles));
     }
   }
 
+  // Xóa ảnh khỏi danh sách
   void _removeMedia(int index) {
-    setState(() {
-      _selectedMedia.removeAt(index);
-    });
+    setState(() => _selectedMedia.removeAt(index));
   }
 
-  void _showLimitMessage(String message) {
+  // Hiển thị thông báo
+  void _showMessage(String message, {required bool isError}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.orange,
+        backgroundColor: isError ? Colors.red : Colors.orange,
       ),
     );
   }
 
-  void _showErrorMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-
+  // Đăng bài viết
   Future<void> _submit() async {
     if (!_canPost) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Hãy nhập caption hoặc chọn ít nhất 1 ảnh'),
-        ),
-      );
+      _showMessage('Hãy nhập caption hoặc chọn ít nhất 1 ảnh', isError: true);
       return;
     }
 
@@ -173,9 +155,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final postProvider = context.read<PostProvider>();
 
     if (authProvider.firebaseUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bạn cần đăng nhập để đăng bài')),
-      );
+      _showMessage('Bạn cần đăng nhập để đăng bài', isError: true);
       return;
     }
 
@@ -185,23 +165,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     });
 
     try {
+      // Upload ảnh lên ImgBB
       List<String> imageUrls = [];
-
-      // Upload all media files
-      if (_selectedMedia.isNotEmpty) {
-        for (int i = 0; i < _selectedMedia.length; i++) {
-          final file = _selectedMedia[i];
-          
-          setState(() {
-            _uploadProgress = (i + 1) / _selectedMedia.length;
-          });
-
-          final imageUrl = await ImgBBService.uploadImage(file);
-          imageUrls.add(imageUrl);
-        }
+      for (int i = 0; i < _selectedMedia.length; i++) {
+        setState(() => _uploadProgress = (i + 1) / _selectedMedia.length);
+        final imageUrl = await ImgBBService.uploadImage(_selectedMedia[i]);
+        imageUrls.add(imageUrl);
       }
 
-      // Create post in Firestore
+      // Tạo bài viết trong Firestore
       final success = await postProvider.createPost(
         userId: authProvider.firebaseUser!.uid,
         caption: _captionController.text.trim(),
@@ -211,225 +183,37 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       if (mounted) {
         setState(() => _isUploading = false);
-
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đăng bài thành công!')),
-          );
+          _showMessage('Đăng bài thành công!', isError: false);
           Navigator.of(context).pop();
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(postProvider.error ?? 'Đăng bài thất bại'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showMessage(postProvider.error ?? 'Đăng bài thất bại', isError: true);
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isUploading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
-        );
+        _showMessage('Lỗi: $e', isError: true);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final userModel = authProvider.userModel;
+    final userModel = context.watch<AuthProvider>().userModel;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: _isUploading ? null : () => Navigator.of(context).pop(),
-        ),
-        centerTitle: true,
-        title: const Text('Bài viết mới'),
-        actions: [
-          TextButton(
-            onPressed: (_canPost && !_isUploading) ? _submit : null,
-            child: _isUploading
-                ? SizedBox(
-                    width: 60,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            value: _uploadProgress > 0 ? _uploadProgress : null,
-                          ),
-                        ),
-                        if (_uploadProgress > 0)
-                          Text(
-                            '${(_uploadProgress * 100).toInt()}%',
-                            style: TextStyle(fontSize: 10, color: Colors.grey),
-                          ),
-                      ],
-                    ),
-                  )
-                : Text(
-                    'Đăng',
-                    style: TextStyle(
-                      color: _canPost ? Colors.blue : Colors.grey,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User info
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundImage: userModel?.photoURL != null
-                        ? CachedNetworkImageProvider(userModel!.photoURL!)
-                        : null,
-                    child: userModel?.photoURL == null
-                        ? const Icon(Icons.person)
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        userModel?.displayName ?? 'User',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
-                      if (_selectedMedia.isNotEmpty)
-                        Text(
-                          '${_selectedMedia.length}/$maxMediaCount ảnh',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Visibility selector
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<PostVisibility>(
-                    value: _selectedVisibility,
-                    isDense: true,
-                    icon: const Icon(Icons.arrow_drop_down, size: 20),
-                    items: const [
-                      DropdownMenuItem(
-                        value: PostVisibility.public,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.public, size: 16, color: Colors.blue),
-                            SizedBox(width: 6),
-                            Text('Công khai', style: TextStyle(fontSize: 14)),
-                          ],
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: PostVisibility.followersOnly,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.people, size: 16, color: Colors.green),
-                            SizedBox(width: 6),
-                            Text('Người theo dõi', style: TextStyle(fontSize: 14)),
-                          ],
-                        ),
-                      ),
-                    ],
-                    onChanged: _isUploading ? null : (value) {
-                      if (value != null) setState(() => _selectedVisibility = value);
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            // Caption input
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: _captionController,
-                maxLines: 5,
-                maxLength: 2000,
-                enabled: !_isUploading,
-                keyboardType: TextInputType.multiline,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Bạn đang nghĩ gì?',
-                  hintStyle: TextStyle(fontSize: 20, color: Colors.grey),
-                  counterStyle: TextStyle(fontSize: 12),
-                ),
-              ),
-            ),
-
-            // Media preview grid
-            if (_selectedMedia.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: _buildMediaGrid(),
-              ),
-
-            // Media buttons
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16)
-                  .copyWith(bottom: 16),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildMediaButton(
-                    icon: Icons.image_outlined,
-                    label: 'Thư viện',
-                    onPressed: _isUploading ? null : _pickFromGallery,
-                  ),
-                  _buildMediaButton(
-                    icon: Icons.camera_alt_outlined,
-                    label: 'Chụp ảnh',
-                    onPressed: _isUploading ? null : _takePhoto,
-                  ),
-                ],
-              ),
-            ),
-
-            // File size info
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'Giới hạn: ${maxFileSizeMB}MB/ảnh, tối đa $maxMediaCount ảnh, tổng ${maxTotalSizeMB}MB',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-              ),
-            ),
-
-            // Add bottom padding for keyboard
+            _buildUserInfo(userModel),
+            _buildVisibilitySelector(),
+            _buildCaptionInput(),
+            if (_selectedMedia.isNotEmpty) _buildMediaGrid(),
+            _buildMediaButtons(),
+            _buildLimitInfo(),
             const SizedBox(height: 100),
           ],
         ),
@@ -437,44 +221,186 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  Widget _buildMediaButton({
-    required IconData icon,
-    required String label,
-    VoidCallback? onPressed,
-  }) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 20),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(
+  // AppBar với nút đóng và nút đăng
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: _isUploading ? null : () => Navigator.of(context).pop(),
+      ),
+      centerTitle: true,
+      title: const Text('Bài viết mới'),
+      actions: [
+        TextButton(
+          onPressed: (_canPost && !_isUploading) ? _submit : null,
+          child: _isUploading
+              ? _buildUploadingIndicator()
+              : Text(
+                  'Đăng',
+                  style: TextStyle(
+                    color: _canPost ? Colors.blue : Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  // Indicator khi đang upload
+  Widget _buildUploadingIndicator() {
+    return SizedBox(
+      width: 60,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              value: _uploadProgress > 0 ? _uploadProgress : null,
+            ),
+          ),
+          if (_uploadProgress > 0)
+            Text(
+              '${(_uploadProgress * 100).toInt()}%',
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Thông tin người dùng
+  Widget _buildUserInfo(userModel) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundImage: userModel?.photoURL != null
+                ? CachedNetworkImageProvider(userModel!.photoURL!)
+                : null,
+            child: userModel?.photoURL == null ? const Icon(Icons.person) : null,
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                userModel?.displayName ?? 'User',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
+              if (_selectedMedia.isNotEmpty)
+                Text(
+                  '${_selectedMedia.length}/$maxMediaCount ảnh',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Dropdown chọn quyền riêng tư
+  Widget _buildVisibilitySelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
           borderRadius: BorderRadius.circular(20),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<PostVisibility>(
+            value: _selectedVisibility,
+            isDense: true,
+            icon: const Icon(Icons.arrow_drop_down, size: 20),
+            items: const [
+              DropdownMenuItem(
+                value: PostVisibility.public,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.public, size: 16, color: Colors.blue),
+                    SizedBox(width: 6),
+                    Text('Công khai', style: TextStyle(fontSize: 14)),
+                  ],
+                ),
+              ),
+              DropdownMenuItem(
+                value: PostVisibility.followersOnly,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.people, size: 16, color: Colors.green),
+                    SizedBox(width: 6),
+                    Text('Người theo dõi', style: TextStyle(fontSize: 14)),
+                  ],
+                ),
+              ),
+            ],
+            onChanged: _isUploading
+                ? null
+                : (value) {
+                    if (value != null) setState(() => _selectedVisibility = value);
+                  },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMediaGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: _selectedMedia.length == 1 ? 1 : 2,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: _selectedMedia.length == 1 ? 1.5 : 1,
+  // Ô nhập caption
+  Widget _buildCaptionInput() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: TextField(
+        controller: _captionController,
+        maxLines: 5,
+        maxLength: 2000,
+        enabled: !_isUploading,
+        keyboardType: TextInputType.multiline,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          hintText: 'Bạn đang nghĩ gì?',
+          hintStyle: TextStyle(fontSize: 20, color: Colors.grey),
+          counterStyle: TextStyle(fontSize: 12),
+        ),
       ),
-      itemCount: _selectedMedia.length,
-      itemBuilder: (context, index) => _buildMediaItem(index),
     );
   }
 
+  // Grid hiển thị ảnh đã chọn
+  Widget _buildMediaGrid() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _selectedMedia.length == 1 ? 1 : 2,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: _selectedMedia.length == 1 ? 1.5 : 1,
+        ),
+        itemCount: _selectedMedia.length,
+        itemBuilder: (context, index) => _buildMediaItem(index),
+      ),
+    );
+  }
+
+  // Một item ảnh trong grid
   Widget _buildMediaItem(int index) {
     final file = _selectedMedia[index];
 
     return Stack(
       children: [
+        // Ảnh preview
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Container(
@@ -485,24 +411,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               future: file.readAsBytes(),
               builder: (context, snapshot) {
                 if (snapshot.hasData) {
-                  return Image.memory(
-                    snapshot.data!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildFallbackPreview(file, 'Không thể preview');
-                    },
-                  );
+                  return Image.memory(snapshot.data!, fit: BoxFit.cover);
                 }
                 if (snapshot.hasError) {
-                  return _buildFallbackPreview(file, 'Lỗi tải ảnh');
+                  return _buildFallbackPreview(file);
                 }
                 return const Center(child: CircularProgressIndicator());
               },
             ),
           ),
         ),
-        
-        // Remove button
+
+        // Nút xóa
         if (!_isUploading)
           Positioned(
             top: 8,
@@ -515,16 +435,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   color: Colors.black54,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 18,
-                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 18),
               ),
             ),
           ),
-          
-        // Index number
+
+        // Số thứ tự
         Positioned(
           bottom: 8,
           right: 8,
@@ -548,8 +464,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  /// Build fallback preview for files that can't be displayed
-  Widget _buildFallbackPreview(XFile file, String message) {
+  // Preview khi không load được ảnh
+  Widget _buildFallbackPreview(XFile file) {
     return Container(
       color: Colors.grey[300],
       child: Center(
@@ -558,25 +474,66 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           children: [
             Icon(Icons.insert_drive_file, size: 40, color: Colors.grey[600]),
             const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                file.name,
-                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 4),
             Text(
-              message,
-              style: TextStyle(fontSize: 10, color: Colors.orange[700]),
+              file.name,
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
     );
   }
-}
 
+  // Các nút chọn ảnh
+  Widget _buildMediaButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16).copyWith(bottom: 16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _buildMediaButton(
+            icon: Icons.image_outlined,
+            label: 'Thư viện',
+            onPressed: _isUploading ? null : _pickFromGallery,
+          ),
+          _buildMediaButton(
+            icon: Icons.camera_alt_outlined,
+            label: 'Chụp ảnh',
+            onPressed: _isUploading ? null : _takePhoto,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediaButton({
+    required IconData icon,
+    required String label,
+    VoidCallback? onPressed,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+    );
+  }
+
+  // Thông tin giới hạn
+  Widget _buildLimitInfo() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        'Giới hạn: ${maxFileSizeMB}MB/ảnh, tối đa $maxMediaCount ảnh, tổng ${maxTotalSizeMB}MB',
+        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+      ),
+    );
+  }
+}

@@ -5,16 +5,17 @@ import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import '../utils/app_logger.dart';
 
+/// Provider quản lý bài viết
 class PostProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
   final NotificationService _notificationService = NotificationService();
 
-  List<PostModel> _posts = [];
-  final Map<String, UserModel> _postAuthors = {}; // Cache user data for posts
-  Set<String> _savedPostIds = {}; // Cache saved post IDs
+  List<PostModel> _posts = [];                    // Danh sách bài viết
+  final Map<String, UserModel> _postAuthors = {}; // Cache thông tin tác giả
+  Set<String> _savedPostIds = {};                 // Cache ID bài đã lưu
   bool _isLoading = false;
   String? _error;
-  String? _lastDeletedPostId; // Track deleted post for other screens to update
+  String? _lastDeletedPostId;                     // ID bài vừa xóa
 
   // Getters
   List<PostModel> get posts => _posts;
@@ -24,7 +25,7 @@ class PostProvider with ChangeNotifier {
   String? get error => _error;
   String? get lastDeletedPostId => _lastDeletedPostId;
 
-  /// Get filtered posts based on visibility and current user's follow list
+  // Lọc bài viết theo visibility và danh sách following
   List<PostModel> getFilteredPosts(
     String? currentUserId,
     List<String> followingIds,
@@ -32,13 +33,13 @@ class PostProvider with ChangeNotifier {
     if (currentUserId == null) return _posts;
 
     return _posts.where((post) {
-      // Show own posts
+      // Hiện bài của mình
       if (post.userId == currentUserId) return true;
 
-      // Show public posts
+      // Hiện bài public
       if (post.visibility == PostVisibility.public) return true;
 
-      // Show followers-only posts if following
+      // Hiện bài followers-only nếu đang follow
       if (post.visibility == PostVisibility.followersOnly) {
         return followingIds.contains(post.userId);
       }
@@ -47,23 +48,23 @@ class PostProvider with ChangeNotifier {
     }).toList();
   }
 
-  // Initialize post stream
+  // Khởi tạo stream bài viết
   void initializePostStream() {
     _firestoreService.getPosts().listen(
       (List<PostModel> loadedPosts) async {
-        // Cập nhật danh sách bài viết ngay lập tức để người dùng thấy nội dung trước
+        // Cập nhật danh sách ngay để user thấy nội dung
         _posts = loadedPosts;
         notifyListeners();
 
-        // Tìm các userId chưa có dữ liệu author trong cache
+        // Tìm các userId chưa có trong cache
         final missingUserIds = _posts
             .map((p) => p.userId)
             .where((uid) => !_postAuthors.containsKey(uid))
-            .toSet(); // Dùng Set để tránh lấy trùng
+            .toSet();
 
         if (missingUserIds.isEmpty) return;
 
-        // Lấy thông tin các author còn thiếu song song (Future.wait) để tăng tốc độ
+        // Tải thông tin tác giả song song
         try {
           final results = await Future.wait(
             missingUserIds.map((uid) => _firestoreService.getUser(uid)),
@@ -77,7 +78,6 @@ class PostProvider with ChangeNotifier {
             }
           }
 
-          // Thông báo lại sau khi đã có đầy đủ info tác giả
           notifyListeners();
         } catch (e) {
           AppLogger.error('Lỗi tải dữ liệu người dùng', error: e);
@@ -90,7 +90,7 @@ class PostProvider with ChangeNotifier {
     );
   }
 
-  // Create post
+  // Tạo bài viết mới
   Future<bool> createPost({
     required String userId,
     required String caption,
@@ -109,7 +109,7 @@ class PostProvider with ChangeNotifier {
         visibility: visibility,
       );
 
-      // Create new post notification for all followers
+      // Tạo notification cho followers
       await _notificationService.createNewPostNotificationForFollowers(
         postAuthorId: userId,
         postId: postId,
@@ -126,7 +126,7 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  // Update post
+  // Cập nhật bài viết
   Future<bool> updatePost(String postId, Map<String, dynamic> data) async {
     try {
       await _firestoreService.updatePost(postId, data);
@@ -151,7 +151,7 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  // Delete post
+  // Xóa bài viết
   Future<bool> deletePost(String postId, String userId) async {
     _isLoading = true;
     _error = null;
@@ -175,7 +175,7 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  // Like post
+  // Thích bài viết
   Future<void> likePost(
     String postId,
     String userId, {
@@ -184,7 +184,7 @@ class PostProvider with ChangeNotifier {
     try {
       await _firestoreService.likePost(postId, userId);
 
-      // Create like notification if we know the post owner
+      // Tạo notification nếu biết chủ bài viết
       if (postOwnerId != null && postOwnerId != userId) {
         await _notificationService.createLikeNotification(
           fromUserId: userId,
@@ -198,7 +198,7 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  // Unlike post
+  // Bỏ thích bài viết
   Future<void> unlikePost(String postId, String userId) async {
     try {
       await _firestoreService.unlikePost(postId, userId);
@@ -208,19 +208,17 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  // Check if user liked post
+  // Kiểm tra đã thích chưa
   Future<bool> hasLikedPost(String postId, String userId) async {
     return await _firestoreService.hasLikedPost(postId, userId);
   }
 
-  // Get author for a post
+  // Lấy thông tin tác giả
   UserModel? getPostAuthor(String userId) {
     return _postAuthors[userId];
   }
 
-  // ==================== SAVED POSTS CACHE ====================
-
-  /// Load saved post IDs for a user (call once on app start)
+  // Tải danh sách ID bài đã lưu
   Future<void> loadSavedPostIds(String userId) async {
     try {
       _savedPostIds = await _firestoreService.getSavedPostIds(userId);
@@ -230,15 +228,15 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  /// Check if post is saved (from cache - no network call)
+  // Kiểm tra bài đã lưu chưa (từ cache)
   bool isSaved(String postId) {
     return _savedPostIds.contains(postId);
   }
 
-  /// Toggle save state and update cache
+  // Toggle trạng thái lưu bài
   Future<bool> toggleSave(String userId, String postId) async {
     final wasSaved = _savedPostIds.contains(postId);
-    
+
     // Optimistic update
     if (wasSaved) {
       _savedPostIds.remove(postId);
@@ -255,7 +253,7 @@ class PostProvider with ChangeNotifier {
       }
       return true;
     } catch (e) {
-      // Revert on error
+      // Revert nếu lỗi
       if (wasSaved) {
         _savedPostIds.add(postId);
       } else {
@@ -267,7 +265,7 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  // Clear error
+  // Xóa lỗi
   void clearError() {
     _error = null;
     notifyListeners();

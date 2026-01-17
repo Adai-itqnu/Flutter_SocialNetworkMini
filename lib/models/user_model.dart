@@ -1,21 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Model người dùng
 class UserModel {
-  final String uid;
-  final String email;
-  final String username;
-  final String displayName;
-  final String? photoURL;
-  final String? bio;
-  final String? pronouns;
-  final String? tagline;
-  final String? link;
-  final String? gender;
-  final int followersCount;
-  final int followingCount;
-  final int postsCount;
-  final DateTime createdAt;
-  final String role; // 'user' or 'admin'
+  final String uid;              // ID người dùng (Firebase Auth UID)
+  final String email;            // Email
+  final String username;         // Tên người dùng (unique, dùng cho @mention)
+  final String displayName;      // Tên hiển thị
+  final String? photoURL;        // URL ảnh đại diện
+  final String? bio;             // Tiểu sử
+  final String? pronouns;        // Đại từ nhân xưng
+  final String? tagline;         // Khẩu hiệu
+  final String? link;            // Link website/social
+  final String? gender;          // Giới tính
+  final int followersCount;      // Số người theo dõi
+  final int followingCount;      // Số người đang theo dõi
+  final int postsCount;          // Số bài viết
+  final DateTime createdAt;      // Thời gian tạo tài khoản
+  final String role;             // Vai trò: 'user' hoặc 'admin'
 
   UserModel({
     required this.uid,
@@ -32,10 +33,10 @@ class UserModel {
     this.followingCount = 0,
     this.postsCount = 0,
     required this.createdAt,
-    this.role = 'user', // Default role
+    this.role = 'user',
   });
 
-  // Convert UserModel to JSON for Firestore
+  // Chuyển sang JSON để lưu Firestore
   Map<String, dynamic> toJson() {
     return {
       'uid': uid,
@@ -56,7 +57,7 @@ class UserModel {
     };
   }
 
-  // Create UserModel from Firestore document
+  // Tạo từ Firestore document
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return UserModel(
@@ -78,7 +79,7 @@ class UserModel {
     );
   }
 
-  // Create UserModel from JSON
+  // Tạo từ JSON
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       uid: json['uid'] ?? '',
@@ -101,7 +102,7 @@ class UserModel {
     );
   }
 
-  // Copy with method for updates
+  // Tạo bản sao với các field được cập nhật
   UserModel copyWith({
     String? uid,
     String? email,

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Thông tin người tham gia trong phòng chat
 class ParticipantInfo {
   final String displayName;
   final String username;
@@ -11,6 +12,7 @@ class ParticipantInfo {
     this.photoURL,
   });
 
+  // Chuyển sang JSON để lưu Firestore
   Map<String, dynamic> toJson() {
     return {
       'displayName': displayName,
@@ -19,6 +21,7 @@ class ParticipantInfo {
     };
   }
 
+  // Tạo từ JSON
   factory ParticipantInfo.fromJson(Map<String, dynamic> json) {
     return ParticipantInfo(
       displayName: json['displayName'] ?? '',
@@ -28,16 +31,17 @@ class ParticipantInfo {
   }
 }
 
+/// Model phòng chat giữa 2 người dùng
 class ChatRoomModel {
-  final String chatId;
-  final List<String> participants;
-  final Map<String, ParticipantInfo> participantDetails;
-  final String? lastMessage;
-  final DateTime? lastMessageTime;
-  final String? lastMessageSenderId;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final Map<String, int> unreadCount; // Track unread messages per user
+  final String chatId;                              // ID phòng chat
+  final List<String> participants;                  // Danh sách ID người tham gia
+  final Map<String, ParticipantInfo> participantDetails; // Thông tin chi tiết người tham gia
+  final String? lastMessage;                        // Tin nhắn cuối cùng
+  final DateTime? lastMessageTime;                  // Thời gian tin nhắn cuối
+  final String? lastMessageSenderId;                // Người gửi tin nhắn cuối
+  final DateTime createdAt;                         // Thời gian tạo phòng
+  final DateTime updatedAt;                         // Thời gian cập nhật
+  final Map<String, int> unreadCount;               // Số tin chưa đọc theo userId
 
   ChatRoomModel({
     required this.chatId,
@@ -51,6 +55,7 @@ class ChatRoomModel {
     this.unreadCount = const {},
   });
 
+  // Chuyển sang JSON để lưu Firestore
   Map<String, dynamic> toJson() {
     return {
       'chatId': chatId,
@@ -69,10 +74,13 @@ class ChatRoomModel {
     };
   }
 
+  // Tạo từ Firestore document
   factory ChatRoomModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
-    final participantDetailsData = data['participantDetails'] as Map<String, dynamic>? ?? {};
+
+    // Parse participantDetails map
+    final participantDetailsData =
+        data['participantDetails'] as Map<String, dynamic>? ?? {};
     final participantDetails = participantDetailsData.map(
       (key, value) => MapEntry(
         key,
@@ -101,12 +109,12 @@ class ChatRoomModel {
     );
   }
 
-  /// Get unread count for a specific user
+  // Lấy số tin chưa đọc của user
   int getUnreadCountFor(String userId) {
     return unreadCount[userId] ?? 0;
   }
 
-  /// Get other participant info (not current user)
+  // Lấy thông tin người còn lại trong phòng chat (không phải current user)
   ParticipantInfo? getOtherParticipant(String currentUserId) {
     final otherUserId = participants.firstWhere(
       (id) => id != currentUserId,

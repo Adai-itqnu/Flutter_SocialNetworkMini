@@ -11,6 +11,7 @@ import '../../services/firestore_service.dart';
 import '../../widgets/post_card.dart';
 import '../profile/user_profile_screen.dart';
 
+/// Màn hình hiển thị danh sách thông báo
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -22,7 +23,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    // Đảm bảo notification stream đã được khởi tạo
+    // Khởi tạo stream thông báo sau khi widget được build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();
       final notificationProvider = context.read<NotificationProvider>();
@@ -36,6 +37,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
   }
 
+  // Lấy icon theo loại thông báo
   IconData _getNotificationIcon(NotificationType type) {
     switch (type) {
       case NotificationType.like:
@@ -51,6 +53,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  // Lấy màu theo loại thông báo
   Color _getNotificationColor(NotificationType type) {
     switch (type) {
       case NotificationType.like:
@@ -66,27 +69,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  // Xử lý khi tap vào thông báo
   void _onNotificationTap(NotificationModel notification) async {
     final notificationProvider = context.read<NotificationProvider>();
 
-    // Mark as read
+    // Đánh dấu đã đọc
     if (!notification.isRead) {
       notificationProvider.markAsRead(notification.notificationId);
     }
 
-    // Navigate based on notification type
+    // Điều hướng theo loại thông báo
     if (notification.type == NotificationType.follow) {
-      // Follow notification -> open user profile
+      // Follow -> mở profile người theo dõi
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => UserProfileScreen(userId: notification.fromUserId),
         ),
       );
     } else if (notification.postId != null) {
-      // Like/Comment/Share notification -> open post detail
-      await _openPostDetail(notification.postId!, notification.fromUserId);
+      // Like/Comment/Share -> mở bài viết
+      await _openPostDetail(notification.postId!);
     } else {
-      // Fallback to user profile
+      // Fallback -> mở profile
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => UserProfileScreen(userId: notification.fromUserId),
@@ -95,7 +99,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  Future<void> _openPostDetail(String postId, String fromUserId) async {
+  // Mở bottom sheet hiển thị chi tiết bài viết
+  Future<void> _openPostDetail(String postId) async {
     try {
       final firestoreService = FirestoreService();
       final post = await firestoreService.getPost(postId);
@@ -128,6 +133,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               controller: scrollController,
               child: Column(
                 children: [
+                  // Thanh kéo
                   Container(
                     margin: const EdgeInsets.symmetric(vertical: 12),
                     width: 40,
@@ -146,9 +152,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
       }
     }
   }
@@ -157,115 +163,122 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Thông báo',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
-        actions: [
-          Consumer<NotificationProvider>(
-            builder: (context, provider, _) {
-              final hasUnread = provider.notifications.any((n) => !n.isRead);
-              return Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextButton(
-                  onPressed: hasUnread
-                      ? () {
-                          final authProvider = context.read<AuthProvider>();
-                          if (authProvider.firebaseUser != null) {
-                            provider.markAllAsRead(
-                              authProvider.firebaseUser!.uid,
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Đã đánh dấu tất cả là đã đọc'),
-                                duration: Duration(seconds: 2),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        }
-                      : null,
-                  child: Text(
-                    'Đánh dấu đã đọc',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: hasUnread ? Colors.blue : Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(),
       body: Consumer<NotificationProvider>(
         builder: (context, provider, _) {
           if (provider.notifications.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none_outlined,
-                    size: 80,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Chưa có thông báo nào',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Thông báo sẽ xuất hiện khi có người\ntương tác với bạn',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-            );
+            return _buildEmptyState();
           }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: provider.notifications.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final notification = provider.notifications[index];
-              final fromUser = provider.getNotificationUser(
-                notification.fromUserId,
-              );
-
-              return _NotificationCard(
-                notification: notification,
-                fromUser: fromUser,
-                icon: _getNotificationIcon(notification.type),
-                iconColor: _getNotificationColor(notification.type),
-                onTap: () => _onNotificationTap(notification),
-                onDismiss: () =>
-                    provider.deleteNotification(notification.notificationId),
-              );
-            },
-          );
+          return _buildNotificationsList(provider);
         },
       ),
     );
   }
+
+  // AppBar với nút đánh dấu đã đọc
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      title: const Text(
+        'Thông báo',
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: 20,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      backgroundColor: Colors.white,
+      elevation: 0,
+      foregroundColor: Colors.black,
+      actions: [
+        Consumer<NotificationProvider>(
+          builder: (context, provider, _) {
+            final hasUnread = provider.notifications.any((n) => !n.isRead);
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextButton(
+                onPressed: hasUnread ? () => _markAllAsRead(provider) : null,
+                child: Text(
+                  'Đánh dấu đã đọc',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: hasUnread ? Colors.blue : Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // Đánh dấu tất cả thông báo đã đọc
+  void _markAllAsRead(NotificationProvider provider) {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.firebaseUser != null) {
+      provider.markAllAsRead(authProvider.firebaseUser!.uid);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã đánh dấu tất cả là đã đọc'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  // Trạng thái khi chưa có thông báo
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_none_outlined, size: 80, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'Chưa có thông báo nào',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Thông báo sẽ xuất hiện khi có người\ntương tác với bạn',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Danh sách thông báo
+  Widget _buildNotificationsList(NotificationProvider provider) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemCount: provider.notifications.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final notification = provider.notifications[index];
+        final fromUser = provider.getNotificationUser(notification.fromUserId);
+
+        return _NotificationCard(
+          notification: notification,
+          fromUser: fromUser,
+          icon: _getNotificationIcon(notification.type),
+          iconColor: _getNotificationColor(notification.type),
+          onTap: () => _onNotificationTap(notification),
+          onDismiss: () => provider.deleteNotification(notification.notificationId),
+        );
+      },
+    );
+  }
 }
 
+/// Widget hiển thị 1 thông báo
 class _NotificationCard extends StatelessWidget {
   final NotificationModel notification;
   final UserModel? fromUser;
@@ -294,15 +307,7 @@ class _NotificationCard extends StatelessWidget {
       key: Key(notification.notificationId),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => onDismiss(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: Colors.red.shade400,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
-      ),
+      background: _buildDismissBackground(),
       child: Card(
         elevation: isRead ? 0 : 1,
         shape: RoundedRectangleBorder(
@@ -320,92 +325,112 @@ class _NotificationCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar with notification type icon
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: Colors.grey[200],
-                      backgroundImage: userPhoto != null
-                          ? CachedNetworkImageProvider(userPhoto)
-                          : null,
-                      child: userPhoto == null
-                          ? Text(
-                              userName[0].toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black54,
-                              ),
-                            )
-                          : null,
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: iconColor.withOpacity(0.9),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: Icon(icon, size: 10, color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
+                _buildAvatar(userName, userPhoto),
                 const SizedBox(width: 12),
-
-                // Notification content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 14,
-                            height: 1.3,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: userName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            TextSpan(
-                              text: ' ${notification.getContent(userName)}',
-                              style: TextStyle(color: Colors.black54),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        timeAgo,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Unread indicator
-                if (!isRead)
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+                _buildContent(userName, timeAgo),
+                if (!isRead) _buildUnreadIndicator(),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // Background khi vuốt để xóa
+  Widget _buildDismissBackground() {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20),
+      decoration: BoxDecoration(
+        color: Colors.red.shade400,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(Icons.delete_outline, color: Colors.white),
+    );
+  }
+
+  // Avatar với icon loại thông báo
+  Widget _buildAvatar(String userName, String? userPhoto) {
+    return Stack(
+      children: [
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: Colors.grey[200],
+          backgroundImage:
+              userPhoto != null ? CachedNetworkImageProvider(userPhoto) : null,
+          child: userPhoto == null
+              ? Text(
+                  userName[0].toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black54,
+                  ),
+                )
+              : null,
+        ),
+        // Badge icon loại thông báo
+        Positioned(
+          right: 0,
+          bottom: 0,
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.9),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: Icon(icon, size: 10, color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Nội dung thông báo
+  Widget _buildContent(String userName, String timeAgo) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 14,
+                height: 1.3,
+              ),
+              children: [
+                TextSpan(
+                  text: userName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                TextSpan(
+                  text: ' ${notification.getContent(userName)}',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            timeAgo,
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Chấm xanh báo chưa đọc
+  Widget _buildUnreadIndicator() {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: const BoxDecoration(
+        color: Colors.blue,
+        shape: BoxShape.circle,
       ),
     );
   }

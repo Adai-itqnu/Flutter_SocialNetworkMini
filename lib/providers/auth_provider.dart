@@ -3,13 +3,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
+/// Provider quản lý xác thực người dùng
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
 
-  User? _firebaseUser;
-  UserModel? _userModel;
-  bool _isLoading = false;
-  String? _error;
+  User? _firebaseUser;       // Firebase Auth user
+  UserModel? _userModel;     // User data từ Firestore
+  bool _isLoading = false;   // Trạng thái loading
+  String? _error;            // Thông báo lỗi
 
   // Getters
   User? get firebaseUser => _firebaseUser;
@@ -19,7 +20,7 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _firebaseUser != null;
 
   AuthProvider() {
-    // Listen to auth state changes
+    // Lắng nghe thay đổi trạng thái đăng nhập
     _authService.authStateChanges.listen((User? user) {
       _firebaseUser = user;
       if (user != null) {
@@ -31,17 +32,17 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
-  // Load user data from Firestore
+  // Tải dữ liệu user từ Firestore
   Future<void> _loadUserData(String uid) async {
     try {
       _userModel = await _authService.getUserData(uid);
-      
-      // If user logged in but no Firestore profile exists (e.g., deleted DB), create one
+
+      // Nếu user đã đăng nhập nhưng chưa có profile trong Firestore -> tạo mới
       if (_userModel == null && _firebaseUser != null) {
         await _authService.createMissingUserProfile(_firebaseUser!);
         _userModel = await _authService.getUserData(uid);
       }
-      
+
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -49,7 +50,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Sign in
+  // Đăng nhập bằng email/password
   Future<bool> signIn(String email, String password) async {
     _isLoading = true;
     _error = null;
@@ -61,7 +62,6 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      // Parse Firebase error to user-friendly message
       _error = _parseAuthError(e.toString());
       _isLoading = false;
       notifyListeners();
@@ -69,13 +69,12 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// Parse Firebase auth error to Vietnamese message
-  /// Simplified: Only show one generic message for login errors
+  // Parse lỗi Firebase thành thông báo tiếng Việt
   String _parseAuthError(String error) {
     return 'Sai email hoặc mật khẩu vui lòng thử lại!';
   }
 
-  // Sign up
+  // Đăng ký tài khoản mới
   Future<bool> signUp({
     required String email,
     required String password,
@@ -104,7 +103,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Sign in with Google
+  // Đăng nhập bằng Google
   Future<bool> signInWithGoogle() async {
     _isLoading = true;
     _error = null;
@@ -114,12 +113,11 @@ class AuthProvider with ChangeNotifier {
       final userCredential = await _authService.signInWithGoogle();
       _isLoading = false;
       notifyListeners();
-      
+
       if (userCredential == null) {
-        // User cancelled
-        return false;
+        return false; // User hủy đăng nhập
       }
-      
+
       return true;
     } catch (e) {
       _error = e.toString();
@@ -129,7 +127,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Sign out
+  // Đăng xuất
   Future<void> signOut() async {
     await _authService.signOut();
     _userModel = null;
@@ -137,7 +135,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Reset password
+  // Đặt lại mật khẩu
   Future<bool> resetPassword(String email) async {
     _isLoading = true;
     _error = null;
@@ -156,7 +154,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Clear error
+  // Xóa lỗi
   void clearError() {
     _error = null;
     notifyListeners();

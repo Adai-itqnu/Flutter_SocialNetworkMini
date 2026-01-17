@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../models/chat_room_model.dart';
 import '../../models/message_model.dart';
 import '../../models/user_model.dart';
@@ -8,6 +9,7 @@ import '../../services/imgbb_service.dart';
 import '../../services/active_chat_service.dart';
 import '../profile/user_profile_screen.dart';
 
+/// Màn hình chat 1-1 giữa 2 người dùng
 class ChatRoomScreen extends StatefulWidget {
   final ChatRoomModel? chatRoom;
   final UserModel otherUser;
@@ -30,7 +32,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final ChatService _chatService = ChatService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  
+
   ChatRoomModel? _chatRoom;
   bool _isInitializing = true;
 
@@ -40,18 +42,26 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     _initChatRoom();
   }
 
+  @override
+  void dispose() {
+    // Xóa active chat khi rời màn hình
+    ActiveChatService.clearActiveChat();
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Khởi tạo hoặc lấy chat room
   Future<void> _initChatRoom() async {
     if (widget.chatRoom != null) {
       setState(() {
         _chatRoom = widget.chatRoom;
         _isInitializing = false;
       });
-      // Mark as read when opening existing chat room
       _markAsRead();
       return;
     }
 
-    // Create or get chat room
     try {
       final room = await _chatService.createOrGetChatRoom(
         widget.currentUser.uid,
@@ -63,7 +73,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           _chatRoom = room;
           _isInitializing = false;
         });
-        // Mark as read when chat room is ready
         _markAsRead();
       }
     } catch (e) {
@@ -73,24 +82,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
-  /// Mark all messages as read for current user and set active chat
+  // Đánh dấu đã đọc và set active chat (để tắt notification)
   void _markAsRead() {
     if (_chatRoom != null) {
       _chatService.markAsRead(_chatRoom!.chatId, widget.currentUser.uid);
-      // Set this chat as active to suppress notifications
       ActiveChatService.setActiveChat(_chatRoom!.chatId);
     }
   }
 
-  @override
-  void dispose() {
-    // Clear active chat when leaving
-    ActiveChatService.clearActiveChat();
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
+  // Gửi tin nhắn text
   void _sendMessage() {
     final text = _messageController.text.trim();
     if (text.isEmpty || _chatRoom == null) return;
@@ -102,8 +102,11 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     );
 
     _messageController.clear();
-    
-    // Scroll to bottom after sending
+    _scrollToBottom();
+  }
+
+  // Scroll xuống cuối danh sách tin nhắn
+  void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -115,243 +118,29 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_isInitializing) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 1,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(widget.otherUser.displayName),
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_chatRoom == null) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 1,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: const Center(child: Text('Không thể tải cuộc trò chuyện')),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.blue[700],
-              backgroundImage: widget.otherUser.photoURL != null &&
-                      widget.otherUser.photoURL!.isNotEmpty
-                  ? NetworkImage(widget.otherUser.photoURL!)
-                  : null,
-              child: widget.otherUser.photoURL == null ||
-                      widget.otherUser.photoURL!.isEmpty
-                  ? Text(
-                      widget.otherUser.displayName.isNotEmpty
-                          ? widget.otherUser.displayName[0].toUpperCase()
-                          : 'U',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.otherUser.displayName,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '@${widget.otherUser.username}',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline, color: Colors.blue),
-            onPressed: _showUserProfile,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Messages List
-          Expanded(
-            child: StreamBuilder<List<MessageModel>>(
-              stream: _chatService.getMessages(_chatRoom!.chatId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
-                  );
-                }
-
-                final messages = snapshot.data ?? [];
-                
-                // Mark as read whenever we receive new messages while viewing
-                if (messages.isNotEmpty) {
-                  // Use Future.microtask to avoid calling during build
-                  Future.microtask(() => _markAsRead());
-                }
-
-                if (messages.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.chat_bubble_outline,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Chưa có tin nhắn',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Gửi tin nhắn đầu tiên để bắt đầu cuộc trò chuyện',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[500],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return Container(
-                  color: Colors.grey[50],
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    reverse: true, // Start from bottom
-                    padding: const EdgeInsets.all(16),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      final isSent = message.senderId == widget.currentUser.uid;
-                      
-                      return _buildMessageBubble(message, isSent);
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // Message Input
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                top: BorderSide(color: Colors.grey[300]!, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.image, color: Colors.blue[700]),
-                  onPressed: _pickAndSendImage,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Aa',
-                      filled: true,
-                      fillColor: Colors.grey[200],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                    ),
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.send, color: Colors.blue[700]),
-                  onPressed: _sendMessage,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Pick image and send to chat
+  // Chọn ảnh và gửi
   Future<void> _pickAndSendImage() async {
     if (_chatRoom == null) return;
 
     try {
       final picker = ImagePicker();
-      final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-      
+      final image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
       if (image == null) return;
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đang gửi ảnh...'), duration: Duration(seconds: 2)),
+        const SnackBar(
+          content: Text('Đang gửi ảnh...'),
+          duration: Duration(seconds: 2),
+        ),
       );
 
       final imageUrl = await ImgBBService.uploadImage(image);
-      
+
       await _chatService.sendMessage(
         chatId: _chatRoom!.chatId,
         senderId: widget.currentUser.uid,
@@ -370,7 +159,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
-  /// Show user profile
+  // Mở trang profile người dùng
   void _showUserProfile() {
     Navigator.push(
       context,
@@ -380,40 +169,252 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     );
   }
 
+  @override
+  Widget build(BuildContext context) {
+    // Đang khởi tạo
+    if (_isInitializing) {
+      return _buildLoadingScreen();
+    }
+
+    // Lỗi khởi tạo
+    if (_chatRoom == null) {
+      return _buildErrorScreen();
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          Expanded(child: _buildMessagesList()),
+          _buildMessageInput(),
+        ],
+      ),
+    );
+  }
+
+  // Màn hình loading
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(widget.otherUser.displayName),
+      ),
+      body: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  // Màn hình lỗi
+  Widget _buildErrorScreen() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: const Center(child: Text('Không thể tải cuộc trò chuyện')),
+    );
+  }
+
+  // AppBar với avatar và tên người dùng
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 1,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: Row(
+        children: [
+          _buildUserAvatar(radius: 18, fontSize: 14),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.otherUser.displayName,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '@${widget.otherUser.username}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.info_outline, color: Colors.blue),
+          onPressed: _showUserProfile,
+        ),
+      ],
+    );
+  }
+
+  // Danh sách tin nhắn
+  Widget _buildMessagesList() {
+    return StreamBuilder<List<MessageModel>>(
+      stream: _chatService.getMessages(_chatRoom!.chatId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final messages = snapshot.data ?? [];
+
+        // Đánh dấu đã đọc khi nhận tin mới
+        if (messages.isNotEmpty) {
+          Future.microtask(() => _markAsRead());
+        }
+
+        if (messages.isEmpty) {
+          return _buildEmptyMessages();
+        }
+
+        return Container(
+          color: Colors.grey[50],
+          child: ListView.builder(
+            controller: _scrollController,
+            reverse: true,
+            padding: const EdgeInsets.all(16),
+            itemCount: messages.length,
+            itemBuilder: (context, index) {
+              final message = messages[index];
+              final isSent = message.senderId == widget.currentUser.uid;
+              return _buildMessageBubble(message, isSent);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // Trạng thái chưa có tin nhắn
+  Widget _buildEmptyMessages() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'Chưa có tin nhắn',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Gửi tin nhắn đầu tiên để bắt đầu cuộc trò chuyện',
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Ô nhập tin nhắn
+  Widget _buildMessageInput() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.image, color: Colors.blue[700]),
+            onPressed: _pickAndSendImage,
+          ),
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              decoration: InputDecoration(
+                hintText: 'Aa',
+                filled: true,
+                fillColor: Colors.grey[200],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+              ),
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _sendMessage(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.send, color: Colors.blue[700]),
+            onPressed: _sendMessage,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Avatar người dùng
+  Widget _buildUserAvatar({double radius = 14, double fontSize = 10}) {
+    final hasPhoto = widget.otherUser.photoURL != null &&
+        widget.otherUser.photoURL!.isNotEmpty;
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.blue[700],
+      backgroundImage: hasPhoto ? NetworkImage(widget.otherUser.photoURL!) : null,
+      child: !hasPhoto
+          ? Text(
+              widget.otherUser.displayName.isNotEmpty
+                  ? widget.otherUser.displayName[0].toUpperCase()
+                  : 'U',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: fontSize,
+                fontWeight: FontWeight.bold,
+              ),
+            )
+          : null,
+    );
+  }
+
+  // Bubble tin nhắn
   Widget _buildMessageBubble(MessageModel message, bool isSent) {
-    // Check if message contains image
     final isImage = message.text.startsWith('[IMAGE]');
     final imageUrl = isImage ? message.text.substring(7) : null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment:
-            isSent ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isSent ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isSent) ...[
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: Colors.blue[700],
-              backgroundImage: widget.otherUser.photoURL != null &&
-                      widget.otherUser.photoURL!.isNotEmpty
-                  ? NetworkImage(widget.otherUser.photoURL!)
-                  : null,
-              child: widget.otherUser.photoURL == null ||
-                      widget.otherUser.photoURL!.isEmpty
-                  ? Text(
-                      widget.otherUser.displayName.isNotEmpty
-                          ? widget.otherUser.displayName[0].toUpperCase()
-                          : 'U',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
-            ),
+            _buildUserAvatar(),
             const SizedBox(width: 8),
           ],
           Flexible(
@@ -422,61 +423,13 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                   isSent ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 if (isImage && imageUrl != null)
-                  // Image message
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: GestureDetector(
-                      onTap: () => _showFullImage(imageUrl),
-                      child: Image.network(
-                        imageUrl,
-                        width: 200,
-                        height: 200,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return Container(
-                            width: 200, height: 200,
-                            color: Colors.grey[300],
-                            child: const Center(child: CircularProgressIndicator()),
-                          );
-                        },
-                        errorBuilder: (context, error, stack) => Container(
-                          width: 200, height: 200,
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.broken_image, size: 40),
-                        ),
-                      ),
-                    ),
-                  )
+                  _buildImageMessage(imageUrl)
                 else
-                  // Text message
-                  Container(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.7,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSent ? Colors.blue[700] : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Text(
-                      message.text,
-                      style: TextStyle(
-                        color: isSent ? Colors.white : Colors.black,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
+                  _buildTextMessage(message.text, isSent),
                 const SizedBox(height: 4),
                 Text(
                   _formatTime(message.timestamp),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -486,7 +439,59 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     );
   }
 
-  /// Show full image in dialog
+  // Tin nhắn dạng ảnh
+  Widget _buildImageMessage(String imageUrl) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: GestureDetector(
+        onTap: () => _showFullImage(imageUrl),
+        child: Image.network(
+          imageUrl,
+          width: 200,
+          height: 200,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              width: 200,
+              height: 200,
+              color: Colors.grey[300],
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (context, error, stack) => Container(
+            width: 200,
+            height: 200,
+            color: Colors.grey[300],
+            child: const Icon(Icons.broken_image, size: 40),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Tin nhắn dạng text
+  Widget _buildTextMessage(String text, bool isSent) {
+    return Container(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.7,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: isSent ? Colors.blue[700] : Colors.grey[300],
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: isSent ? Colors.white : Colors.black,
+          fontSize: 15,
+        ),
+      ),
+    );
+  }
+
+  // Hiển thị ảnh full screen
   void _showFullImage(String imageUrl) {
     showDialog(
       context: context,
@@ -502,18 +507,14 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     );
   }
 
+  // Format thời gian tin nhắn
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final difference = now.difference(time);
 
-    if (difference.inDays > 0) {
-      return '${difference.inDays} ngày trước';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} giờ trước';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} phút trước';
-    } else {
-      return 'Vừa xong';
-    }
+    if (difference.inDays > 0) return '${difference.inDays} ngày trước';
+    if (difference.inHours > 0) return '${difference.inHours} giờ trước';
+    if (difference.inMinutes > 0) return '${difference.inMinutes} phút trước';
+    return 'Vừa xong';
   }
 }

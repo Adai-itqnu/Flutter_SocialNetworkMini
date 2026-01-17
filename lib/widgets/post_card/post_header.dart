@@ -10,7 +10,8 @@ import '../../services/admin_service.dart';
 import '../../screens/profile/user_profile_screen.dart';
 import '../../providers/post_provider.dart';
 
-/// Widget hiển thị header của bài viết (avatar, tên, thời gian)
+/// Widget header của bài viết
+/// Hiển thị: avatar, tên, thời gian đăng, menu (sửa/xóa/báo cáo)
 class PostHeader extends StatelessWidget {
   final PostModel post;
   final UserModel? author;
@@ -25,174 +26,77 @@ class PostHeader extends StatelessWidget {
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      // Avatar
       leading: GestureDetector(
         onTap: () => _navigateToUserProfile(context),
         child: CircleAvatar(
           backgroundColor: Colors.grey[200],
-          backgroundImage: author?.photoURL != null
-              ? CachedNetworkImageProvider(author!.photoURL!)
-              : null,
-          child: author?.photoURL == null
-              ? const Icon(Icons.person, color: Colors.grey)
-              : null,
+          backgroundImage: author?.photoURL != null ? CachedNetworkImageProvider(author!.photoURL!) : null,
+          child: author?.photoURL == null ? const Icon(Icons.person, color: Colors.grey) : null,
         ),
       ),
+      // Tên người đăng
       title: GestureDetector(
         onTap: () => _navigateToUserProfile(context),
-        child: Text(
-          author?.displayName ?? 'Người dùng',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
+        child: Text(author?.displayName ?? 'Người dùng', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
       ),
-      subtitle: Text(
-        timeago.format(post.createdAt, locale: 'vi'),
-        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-      ),
+      // Thời gian đăng
+      subtitle: Text(timeago.format(post.createdAt, locale: 'vi'), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+      // Menu popup
       trailing: PopupMenuButton<String>(
         icon: const Icon(Icons.more_horiz),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         itemBuilder: (context) => [
-          // Edit - chỉ chủ bài viết
-          if (isOwner)
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit, color: Colors.blue, size: 20),
-                  SizedBox(width: 12),
-                  Text('Sửa bài viết'),
-                ],
-              ),
-            ),
-
-          // Delete - chủ bài viết hoặc admin
-          if (isOwner || isAdmin)
-            PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, color: Colors.red[700], size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Xóa bài viết',
-                    style: TextStyle(color: Colors.red[700]),
-                  ),
-                ],
-              ),
-            ),
-
-          // Report - không phải chủ bài viết
-          if (!isOwner)
-            const PopupMenuItem(
-              value: 'report',
-              child: Row(
-                children: [
-                  Icon(Icons.flag, color: Colors.orange, size: 20),
-                  SizedBox(width: 12),
-                  Text('Báo cáo vi phạm'),
-                ],
-              ),
-            ),
+          // Sửa - chỉ chủ bài
+          if (isOwner) const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, color: Colors.blue, size: 20), SizedBox(width: 12), Text('Sửa bài viết')])),
+          // Xóa - chủ bài hoặc admin
+          if (isOwner || isAdmin) PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.red[700], size: 20), const SizedBox(width: 12), Text('Xóa bài viết', style: TextStyle(color: Colors.red[700]))])),
+          // Báo cáo - không phải chủ bài
+          if (!isOwner) const PopupMenuItem(value: 'report', child: Row(children: [Icon(Icons.flag, color: Colors.orange, size: 20), SizedBox(width: 12), Text('Báo cáo vi phạm')])),
         ],
         onSelected: (value) {
           switch (value) {
-            case 'edit':
-              _editPost(context);
-              break;
-            case 'delete':
-              _deletePost(context);
-              break;
-            case 'report':
-              _reportPost(context);
-              break;
+            case 'edit': _editPost(context); break;
+            case 'delete': _deletePost(context); break;
+            case 'report': _reportPost(context); break;
           }
         },
       ),
     );
   }
 
+  // Chuyển đến trang profile của user
   void _navigateToUserProfile(BuildContext context) {
     final currentUser = context.read<AuthProvider>().userModel;
     if (currentUser?.uid == post.userId) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đây là trang cá nhân của bạn'),
-          duration: Duration(seconds: 1),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đây là trang cá nhân của bạn'), duration: Duration(seconds: 1)));
       return;
     }
-
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => UserProfileScreen(userId: post.userId)),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfileScreen(userId: post.userId)));
   }
 
+  // Dialog sửa bài viết
   void _editPost(BuildContext context) {
-    final TextEditingController captionController = TextEditingController(
-      text: post.caption,
-    );
+    final captionController = TextEditingController(text: post.caption);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Sửa bài viết'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: captionController,
-              decoration: const InputDecoration(
-                hintText: 'Nhập nội dung mới...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 5,
-              minLines: 1,
-            ),
-          ],
-        ),
+        content: TextField(controller: captionController, decoration: const InputDecoration(hintText: 'Nhập nội dung mới...', border: OutlineInputBorder()), maxLines: 5, minLines: 1),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
           TextButton(
             onPressed: () async {
               final newCaption = captionController.text.trim();
-              if (newCaption == post.caption) {
-                Navigator.pop(context);
-                return;
-              }
-
+              if (newCaption == post.caption) { Navigator.pop(context); return; }
               try {
-                Navigator.pop(context); // Close dialog first usage
-
-                // Show loading indicator
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đang cập nhật...'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                }
-
-                await context.read<PostProvider>().updatePost(post.postId, {
-                  'caption': newCaption,
-                });
-
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đã cập nhật bài viết')),
-                  );
-                }
+                Navigator.pop(context);
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đang cập nhật...'), duration: Duration(seconds: 1)));
+                await context.read<PostProvider>().updatePost(post.postId, {'caption': newCaption});
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã cập nhật bài viết')));
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
-                }
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
               }
             },
             child: const Text('Lưu'),
@@ -202,6 +106,7 @@ class PostHeader extends StatelessWidget {
     );
   }
 
+  // Dialog xóa bài viết
   void _deletePost(BuildContext context) {
     showDialog(
       context: context,
@@ -209,30 +114,15 @@ class PostHeader extends StatelessWidget {
         title: const Text('Xóa bài viết'),
         content: const Text('Bạn có chắc chắn muốn xóa bài viết này?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
           TextButton(
             onPressed: () async {
               try {
                 Navigator.pop(context);
-                await context.read<PostProvider>().deletePost(
-                  post.postId,
-                  post.userId,
-                );
-
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đã xóa bài viết')),
-                  );
-                }
+                await context.read<PostProvider>().deletePost(post.postId, post.userId);
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã xóa bài viết')));
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
-                }
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
               }
             },
             child: Text('Xóa', style: TextStyle(color: Colors.red[700])),
@@ -242,73 +132,39 @@ class PostHeader extends StatelessWidget {
     );
   }
 
+  // Dialog báo cáo bài viết
   void _reportPost(BuildContext context) {
-    final TextEditingController reasonController = TextEditingController();
+    final reasonController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Báo cáo bài viết'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Vui lòng cho biết lý do báo cáo:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                hintText: 'Ví dụ: Nội dung không phù hợp',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Vui lòng cho biết lý do báo cáo:'),
+          const SizedBox(height: 16),
+          TextField(controller: reasonController, decoration: const InputDecoration(hintText: 'Ví dụ: Nội dung không phù hợp', border: OutlineInputBorder()), maxLines: 3),
+        ]),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
           TextButton(
             onPressed: () async {
               if (reasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Vui lòng nhập lý do')),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập lý do')));
                 return;
               }
-
               try {
                 final currentUser = context.read<AuthProvider>().userModel!;
-
-                final adminService = AdminService();
-                await adminService.createReport(
-                  postId: post.postId,
-                  reportedBy: currentUser.uid,
-                  postOwnerId: post.userId,
-                  reason: reasonController.text.trim(),
-                );
-
+                await AdminService().createReport(postId: post.postId, reportedBy: currentUser.uid, postOwnerId: post.userId, reason: reasonController.text.trim());
                 if (context.mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã gửi báo cáo. Cảm ơn bạn!'),
-                    ),
-                  );
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã gửi báo cáo. Cảm ơn bạn!')));
                 }
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
-                }
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
               }
             },
-            child: const Text(
-              'Gửi báo cáo',
-              style: TextStyle(color: Colors.orange),
-            ),
+            child: const Text('Gửi báo cáo', style: TextStyle(color: Colors.orange)),
           ),
         ],
       ),

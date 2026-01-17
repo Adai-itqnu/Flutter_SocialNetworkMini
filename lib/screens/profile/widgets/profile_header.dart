@@ -8,12 +8,14 @@ import '../../../providers/user_provider.dart';
 import '../../../widgets/avatar_picker_dialog.dart';
 
 /// Widget hiển thị header thông tin profile
+/// Bao gồm: avatar, thống kê, tên, bio, link
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({super.key, required this.user, required this.onEdit});
 
   final UserModel user;
   final VoidCallback onEdit;
 
+  // Hiện dialog chọn avatar
   void _showAvatarPicker(BuildContext context) {
     AvatarPickerDialog.show(
       context,
@@ -34,29 +36,14 @@ class ProfileHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Avatar - tap to change
+              // Avatar - tap để đổi
               GestureDetector(
                 onTap: () => _showAvatarPicker(context),
                 child: Stack(
                   children: [
-                    CircleAvatar(
-                      radius: 44,
-                      backgroundColor: Colors.grey[300],
-                      backgroundImage:
-                          user.photoURL != null && user.photoURL!.isNotEmpty
-                          ? CachedNetworkImageProvider(user.photoURL!)
-                          : null,
-                      child: user.photoURL == null || user.photoURL!.isEmpty
-                          ? const Icon(
-                              Icons.person,
-                              size: 44,
-                              color: Colors.white,
-                            )
-                          : null,
-                    ),
+                    _buildAvatar(),
                     Positioned(
-                      bottom: 0,
-                      right: 0,
+                      bottom: 0, right: 0,
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
@@ -64,67 +51,66 @@ class ProfileHeader extends StatelessWidget {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 14,
-                          color: Colors.white,
-                        ),
+                        child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 24),
+              // Thống kê
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _StatItem(
-                      count: user.postsCount.toString(),
-                      label: 'Bài viết',
-                    ),
-                    _StatItem(
-                      count: user.followersCount.toString(),
-                      label: 'Người theo dõi',
-                    ),
-                    _StatItem(
-                      count: user.followingCount.toString(),
-                      label: 'Đang theo dõi',
-                    ),
+                    _StatItem(count: user.postsCount.toString(), label: 'Bài viết'),
+                    _StatItem(count: user.followersCount.toString(), label: 'Người theo dõi'),
+                    _StatItem(count: user.followingCount.toString(), label: 'Đang theo dõi'),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            user.displayName,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
+          // Tên hiển thị
+          Text(user.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          // Bio
           if (user.bio != null && user.bio!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(user.bio!, style: const TextStyle(fontSize: 14)),
           ],
+          // Link
           if (user.link != null && user.link!.isNotEmpty) ...[
             const SizedBox(height: 4),
-            InkWell(
-              onTap: () async {
-                final link = user.link!;
-                final uri = Uri.tryParse(
-                  link.startsWith('http') ? link : 'https://$link',
-                );
-                if (uri != null && await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
-              child: Text(
-                user.link!,
-                style: const TextStyle(color: Colors.blue, fontSize: 14),
-              ),
-            ),
+            _buildLink(),
           ],
         ],
       ),
+    );
+  }
+
+  // Avatar
+  Widget _buildAvatar() {
+    final hasPhoto = user.photoURL != null && user.photoURL!.isNotEmpty;
+    return CircleAvatar(
+      radius: 44,
+      backgroundColor: Colors.grey[300],
+      backgroundImage: hasPhoto ? CachedNetworkImageProvider(user.photoURL!) : null,
+      child: !hasPhoto ? const Icon(Icons.person, size: 44, color: Colors.white) : null,
+    );
+  }
+
+  // Link website
+  Widget _buildLink() {
+    return InkWell(
+      onTap: () async {
+        final link = user.link!;
+        final uri = Uri.tryParse(link.startsWith('http') ? link : 'https://$link');
+        if (uri != null && await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Text(user.link!, style: const TextStyle(color: Colors.blue, fontSize: 14)),
     );
   }
 }
@@ -132,7 +118,6 @@ class ProfileHeader extends StatelessWidget {
 /// Widget hiển thị số thống kê
 class _StatItem extends StatelessWidget {
   const _StatItem({required this.count, required this.label});
-
   final String count;
   final String label;
 
@@ -140,10 +125,7 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(
-          count,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
+        Text(count, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         const SizedBox(height: 4),
         Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
       ],

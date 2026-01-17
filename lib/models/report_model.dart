@@ -1,17 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Model báo cáo vi phạm bài viết
 class ReportModel {
-  final String reportId;
-  final String postId;
-  final String reportedBy; // User ID who reported
-  final String postOwnerId; // User ID of post owner
-  final String reason;
-  final DateTime createdAt;
-  final String status; // 'pending', 'resolved', 'dismissed'
-
-  // Snapshot of post data (preserved even if post is deleted)
-  final String? postCaption;
-  final List<String>? postImageUrls;
+  final String reportId;          // ID báo cáo
+  final String postId;            // ID bài viết bị báo cáo
+  final String reportedBy;        // ID người báo cáo
+  final String postOwnerId;       // ID chủ bài viết
+  final String reason;            // Lý do báo cáo
+  final DateTime createdAt;       // Thời gian báo cáo
+  final String status;            // Trạng thái: 'pending', 'resolved', 'dismissed'
+  
+  // Snapshot của bài viết (giữ lại kể cả bài bị xóa)
+  final String? postCaption;      // Caption bài viết
+  final List<String>? postImageUrls; // Ảnh bài viết
 
   ReportModel({
     required this.reportId,
@@ -25,7 +26,7 @@ class ReportModel {
     this.postImageUrls,
   });
 
-  // Convert ReportModel to JSON for Firestore
+  // Chuyển sang JSON để lưu Firestore
   Map<String, dynamic> toJson() {
     return {
       'reportId': reportId,
@@ -40,7 +41,7 @@ class ReportModel {
     };
   }
 
-  // Create ReportModel from Firestore document
+  // Tạo từ Firestore document
   factory ReportModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return ReportModel(
@@ -58,7 +59,7 @@ class ReportModel {
     );
   }
 
-  // Create ReportModel from JSON
+  // Tạo từ JSON
   factory ReportModel.fromJson(Map<String, dynamic> json) {
     return ReportModel(
       reportId: json['reportId'] ?? '',
@@ -77,7 +78,7 @@ class ReportModel {
     );
   }
 
-  // Copy with method for updates
+  // Tạo bản sao với các field được cập nhật
   ReportModel copyWith({
     String? reportId,
     String? postId,

@@ -1,20 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum PostVisibility { public, followersOnly }
+/// Enum quyền riêng tư của bài viết
+enum PostVisibility { 
+  public,        // Công khai - ai cũng xem được
+  followersOnly  // Chỉ người theo dõi
+}
 
+/// Model bài viết
 class PostModel {
-  final String postId;
-  final String userId;
-  final String caption;
-  final List<String> imageUrls;
-  final int likesCount;
-  final int commentsCount;
-  final List<String> likedBy;
-  final String? sharedPostId;
-  final String? sharedUserId;
-  final PostVisibility visibility; // NEW: public or followersOnly
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final String postId;           // ID bài viết
+  final String userId;           // ID người đăng
+  final String caption;          // Nội dung caption
+  final List<String> imageUrls;  // Danh sách URL ảnh
+  final int likesCount;          // Số lượt thích
+  final int commentsCount;       // Số bình luận
+  final List<String> likedBy;    // Danh sách userId đã thích
+  final String? sharedPostId;    // ID bài gốc nếu là bài share
+  final String? sharedUserId;    // ID người đăng bài gốc
+  final PostVisibility visibility; // Quyền riêng tư
+  final DateTime createdAt;      // Thời gian tạo
+  final DateTime updatedAt;      // Thời gian cập nhật
 
   PostModel({
     required this.postId,
@@ -31,6 +36,7 @@ class PostModel {
     required this.updatedAt,
   });
 
+  // Chuyển sang JSON để lưu Firestore
   Map<String, dynamic> toJson() {
     return {
       'postId': postId,
@@ -42,12 +48,13 @@ class PostModel {
       'likedBy': likedBy,
       'sharedPostId': sharedPostId,
       'sharedUserId': sharedUserId,
-      'visibility': visibility.name, // 'public' or 'followersOnly'
+      'visibility': visibility.name,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
   }
 
+  // Tạo từ Firestore document
   factory PostModel.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return PostModel(
@@ -66,6 +73,7 @@ class PostModel {
     );
   }
 
+  // Tạo từ JSON
   factory PostModel.fromJson(Map<String, dynamic> json) {
     return PostModel(
       postId: json['postId'] ?? '',
@@ -87,11 +95,13 @@ class PostModel {
     );
   }
 
+  // Parse string thành PostVisibility
   static PostVisibility _parseVisibility(String? value) {
     if (value == 'followersOnly') return PostVisibility.followersOnly;
-    return PostVisibility.public; // default
+    return PostVisibility.public;
   }
 
+  // Tạo bản sao với các field được cập nhật
   PostModel copyWith({
     String? postId,
     String? userId,

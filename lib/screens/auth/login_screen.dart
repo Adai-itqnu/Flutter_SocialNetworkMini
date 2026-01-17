@@ -7,6 +7,7 @@ import '../../widgets/text_field_label.dart';
 import '../../widgets/gradient_button.dart';
 import '../../providers/auth_provider.dart';
 
+/// Màn hình đăng nhập
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -29,23 +30,22 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Toggle hiện/ẩn mật khẩu
   void _togglePassword() {
-    setState(() {
-      _obscurePassword = !_obscurePassword;
-    });
+    setState(() => _obscurePassword = !_obscurePassword);
   }
 
+  // Xử lý đăng nhập
   Future<void> _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
       final authProvider = context.read<AuthProvider>();
       final scaffoldMessenger = ScaffoldMessenger.of(context);
-      
+
       final success = await authProvider.signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
 
-      // Get error message immediately after signIn
       final errorMessage = authProvider.error;
 
       if (mounted) {
@@ -53,7 +53,6 @@ class _LoginScreenState extends State<LoginScreen> {
           scaffoldMessenger.showSnackBar(
             const SnackBar(content: Text('Đăng nhập thành công!')),
           );
-          // Navigation will be handled automatically by main.dart
         } else {
           scaffoldMessenger.showSnackBar(
             SnackBar(
@@ -79,6 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Email
                 const TextFieldLabel('Email'),
                 TextFormField(
                   controller: _emailController,
@@ -87,6 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   enabled: !authProvider.isLoading,
                 ),
                 const SizedBox(height: 20),
+
+                // Mật khẩu
                 const TextFieldLabel('Mật khẩu'),
                 TextFormField(
                   controller: _passwordController,
@@ -110,66 +112,47 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
+
+                // Quên mật khẩu
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: authProvider.isLoading
                         ? null
-                        : () => Navigator.pushNamed(
-                              context,
-                              '/forgot-password',
-                            ),
+                        : () => Navigator.pushNamed(context, '/forgot-password'),
                     child: const Text('Quên mật khẩu?'),
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // Nút đăng nhập
                 GradientButton(
                   onPressed: authProvider.isLoading ? null : _submit,
                   isLoading: authProvider.isLoading,
                   child: const Text('Đăng nhập'),
                 ),
                 const SizedBox(height: 20),
+
+                // Divider
                 Row(
                   children: [
                     Expanded(child: Divider(color: Colors.grey[400])),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'Hoặc',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
+                      child: Text('Hoặc', style: TextStyle(color: Colors.grey[600])),
                     ),
                     Expanded(child: Divider(color: Colors.grey[400])),
                   ],
                 ),
                 const SizedBox(height: 20),
+
+                // Đăng nhập Google
                 OutlinedButton.icon(
-                  onPressed: authProvider.isLoading
-                      ? null
-                      : () async {
-                          final success = await authProvider.signInWithGoogle();
-                          if (mounted) {
-                            if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Đăng nhập Google thành công!'),
-                                ),
-                              );
-                            } else if (authProvider.error != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(authProvider.error!),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
-                        },
+                  onPressed: authProvider.isLoading ? null : () => _signInWithGoogle(authProvider),
                   icon: Image.network(
                     'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
                     height: 20,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.login, size: 20),
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.login, size: 20),
                   ),
                   label: const Text('Tiếp tục với Google'),
                   style: OutlinedButton.styleFrom(
@@ -177,6 +160,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // Đăng ký
                 OutlinedButton(
                   onPressed: authProvider.isLoading
                       ? null
@@ -189,5 +174,21 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  // Đăng nhập bằng Google
+  Future<void> _signInWithGoogle(AuthProvider authProvider) async {
+    final success = await authProvider.signInWithGoogle();
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đăng nhập Google thành công!')),
+        );
+      } else if (authProvider.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authProvider.error!), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }

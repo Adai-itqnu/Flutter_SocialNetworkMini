@@ -4,13 +4,14 @@ import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../services/imgbb_service.dart';
 
+/// Provider quản lý thông tin người dùng hiện tại
 class UserProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
 
-  UserModel? _currentUser;
-  bool _isLoading = false;
-  bool _isSaving = false;
-  String? _error;
+  UserModel? _currentUser;  // User hiện tại
+  bool _isLoading = false;  // Trạng thái loading
+  bool _isSaving = false;   // Trạng thái đang lưu
+  String? _error;           // Thông báo lỗi
 
   // Getters
   UserModel? get currentUser => _currentUser;
@@ -18,7 +19,7 @@ class UserProvider with ChangeNotifier {
   bool get isSaving => _isSaving;
   String? get error => _error;
 
-  // Load current user
+  // Tải thông tin user từ Firestore
   Future<void> loadUser(String uid) async {
     _isLoading = true;
     notifyListeners();
@@ -34,7 +35,7 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Update user profile
+  // Cập nhật thông tin profile
   Future<bool> updateProfile(String uid, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
@@ -42,9 +43,7 @@ class UserProvider with ChangeNotifier {
 
     try {
       await _firestoreService.updateUser(uid, data);
-
-      // Reload user data
-      await loadUser(uid);
+      await loadUser(uid); // Reload data
 
       _isLoading = false;
       notifyListeners();
@@ -57,7 +56,7 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Update user profile with optional avatar upload
+  // Cập nhật profile kèm upload avatar
   Future<bool> updateProfileWithAvatar({
     required String uid,
     required Map<String, dynamic> data,
@@ -68,16 +67,14 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Upload avatar if provided
+      // Upload avatar nếu có
       if (avatarFile != null) {
         final photoURL = await ImgBBService.uploadImage(avatarFile);
         data['photoURL'] = photoURL;
       }
 
       await _firestoreService.updateUser(uid, data);
-
-      // Reload user data
-      await loadUser(uid);
+      await loadUser(uid); // Reload data
 
       _isSaving = false;
       notifyListeners();
@@ -90,13 +87,13 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Clear error
+  // Xóa lỗi
   void clearError() {
     _error = null;
     notifyListeners();
   }
 
-  // Clear user data (on logout)
+  // Xóa dữ liệu user (khi logout)
   void clearUser() {
     _currentUser = null;
     notifyListeners();

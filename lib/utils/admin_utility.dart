@@ -1,30 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'app_logger.dart';
 
-/// Utility class to manage admin roles
+/// Utility class để quản lý admin roles
 /// Dùng để cập nhật role của users đã tồn tại
 class AdminUtility {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Set admin role for a specific user by email
-  /// Ví dụ: await AdminUtility().setAdminByEmail('user@example.com');
+  // Đặt role admin cho user theo email
   Future<void> setAdminByEmail(String email) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .where('email', isEqualTo: email)
-          .limit(1)
-          .get();
+      final snapshot = await _firestore.collection('users').where('email', isEqualTo: email).limit(1).get();
+      if (snapshot.docs.isEmpty) throw Exception('User with email $email not found');
 
-      if (snapshot.docs.isEmpty) {
-        throw Exception('User with email $email not found');
-      }
-
-      final userDoc = snapshot.docs.first;
-      await _firestore.collection('users').doc(userDoc.id).update({
-        'role': 'admin',
-      });
-
+      await _firestore.collection('users').doc(snapshot.docs.first.id).update({'role': 'admin'});
       AppLogger.info('✅ Successfully set admin role for: $email');
     } catch (e) {
       AppLogger.error('❌ Error setting admin role', error: e);
@@ -32,18 +20,13 @@ class AdminUtility {
     }
   }
 
-  /// Set admin role for a specific user by UID
-  /// Ví dụ: await AdminUtility().setAdminByUid('abc123xyz');
+  // Đặt role admin cho user theo UID
   Future<void> setAdminByUid(String uid) async {
     try {
       final userDoc = await _firestore.collection('users').doc(uid).get();
-
-      if (!userDoc.exists) {
-        throw Exception('User with UID $uid not found');
-      }
+      if (!userDoc.exists) throw Exception('User with UID $uid not found');
 
       await _firestore.collection('users').doc(uid).update({'role': 'admin'});
-
       AppLogger.info('✅ Successfully set admin role for UID: $uid');
     } catch (e) {
       AppLogger.error('❌ Error setting admin role', error: e);
@@ -51,25 +34,13 @@ class AdminUtility {
     }
   }
 
-  /// Remove admin role from a user by email
-  /// Ví dụ: await AdminUtility().removeAdminByEmail('user@example.com');
+  // Xóa role admin theo email
   Future<void> removeAdminByEmail(String email) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .where('email', isEqualTo: email)
-          .limit(1)
-          .get();
+      final snapshot = await _firestore.collection('users').where('email', isEqualTo: email).limit(1).get();
+      if (snapshot.docs.isEmpty) throw Exception('User with email $email not found');
 
-      if (snapshot.docs.isEmpty) {
-        throw Exception('User with email $email not found');
-      }
-
-      final userDoc = snapshot.docs.first;
-      await _firestore.collection('users').doc(userDoc.id).update({
-        'role': 'user',
-      });
-
+      await _firestore.collection('users').doc(snapshot.docs.first.id).update({'role': 'user'});
       AppLogger.info('✅ Successfully removed admin role for: $email');
     } catch (e) {
       AppLogger.error('❌ Error removing admin role', error: e);
@@ -77,11 +48,10 @@ class AdminUtility {
     }
   }
 
-  /// Remove admin role from a user by UID
+  // Xóa role admin theo UID
   Future<void> removeAdminByUid(String uid) async {
     try {
       await _firestore.collection('users').doc(uid).update({'role': 'user'});
-
       AppLogger.info('✅ Successfully removed admin role for UID: $uid');
     } catch (e) {
       AppLogger.error('❌ Error removing admin role', error: e);
@@ -89,22 +59,13 @@ class AdminUtility {
     }
   }
 
-  /// Get list of all admins
+  // Lấy danh sách tất cả admin
   Future<List<Map<String, dynamic>>> getAllAdmins() async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .where('role', isEqualTo: 'admin')
-          .get();
-
+      final snapshot = await _firestore.collection('users').where('role', isEqualTo: 'admin').get();
       return snapshot.docs.map((doc) {
         final data = doc.data();
-        return {
-          'uid': doc.id,
-          'email': data['email'],
-          'displayName': data['displayName'],
-          'username': data['username'],
-        };
+        return {'uid': doc.id, 'email': data['email'], 'displayName': data['displayName'], 'username': data['username']};
       }).toList();
     } catch (e) {
       AppLogger.error('❌ Error getting admins', error: e);
@@ -112,19 +73,16 @@ class AdminUtility {
     }
   }
 
-  /// Update existing users to have 'user' role if they don't have role field
-  /// Run this ONCE to migrate existing users
+  // Migrate users cũ chưa có field role
+  // Chạy 1 lần để cập nhật users hiện có
   Future<void> migrateExistingUsers() async {
     try {
       final snapshot = await _firestore.collection('users').get();
       int updated = 0;
 
       for (var doc in snapshot.docs) {
-        final data = doc.data();
-        if (!data.containsKey('role')) {
-          await _firestore.collection('users').doc(doc.id).update({
-            'role': 'user',
-          });
+        if (!doc.data().containsKey('role')) {
+          await _firestore.collection('users').doc(doc.id).update({'role': 'user'});
           updated++;
         }
       }

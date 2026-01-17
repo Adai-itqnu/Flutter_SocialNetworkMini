@@ -1,23 +1,17 @@
 import 'package:flutter/material.dart';
 
+/// Widget label cho text field
+/// Hiển thị tiêu đề trên ô input
 class TextFieldLabel extends StatelessWidget {
-  const TextFieldLabel(this.text, {super.key});
-
   final String text;
+
+  const TextFieldLabel(this.text, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w500,
-          color: Colors.grey[800],
-        ),
-      ),
+      child: Text(text, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500, color: Colors.grey[800])),
     );
   }
 }
-

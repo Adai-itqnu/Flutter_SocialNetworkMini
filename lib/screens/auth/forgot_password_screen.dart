@@ -7,6 +7,7 @@ import '../../widgets/text_field_label.dart';
 import '../../widgets/gradient_button.dart';
 import '../../providers/auth_provider.dart';
 
+/// Màn hình quên mật khẩu
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -26,6 +27,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
+  // Gửi email đặt lại mật khẩu
   Future<void> _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
       final authProvider = context.read<AuthProvider>();
@@ -37,9 +39,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Email đặt lại mật khẩu đã được gửi!'),
-            ),
+            const SnackBar(content: Text('Email đặt lại mật khẩu đã được gửi!')),
           );
           await Future.delayed(const Duration(seconds: 2));
           Navigator.pop(context);
@@ -67,6 +67,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Email
                 const TextFieldLabel('Email'),
                 TextFormField(
                   controller: _emailController,
@@ -75,15 +76,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   enabled: !authProvider.isLoading,
                 ),
                 const SizedBox(height: 24),
+
+                // Nút gửi
                 GradientButton(
                   onPressed: authProvider.isLoading ? null : _submit,
                   isLoading: authProvider.isLoading,
                   child: const Text('Gửi hướng dẫn'),
                 ),
                 const SizedBox(height: 12),
+
+                // Quay lại
                 TextButton(
-                  onPressed:
-                      authProvider.isLoading ? null : () => Navigator.pop(context),
+                  onPressed: authProvider.isLoading ? null : () => Navigator.pop(context),
                   child: const Text('Quay lại đăng nhập'),
                 ),
               ],

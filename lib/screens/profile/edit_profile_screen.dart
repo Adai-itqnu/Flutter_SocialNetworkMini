@@ -5,9 +5,9 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/user_model.dart';
 import '../../providers/user_provider.dart';
 
+/// Màn hình chỉnh sửa thông tin profile
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key, required this.user});
-
   final UserModel user;
 
   @override
@@ -37,15 +37,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _taglineCtrl = TextEditingController(text: widget.user.tagline ?? '');
     _genderCtrl = TextEditingController(text: widget.user.gender ?? '');
 
-    for (final c in [
-      _displayNameCtrl,
-      _usernameCtrl,
-      _pronounsCtrl,
-      _bioCtrl,
-      _linkCtrl,
-      _taglineCtrl,
-      _genderCtrl
-    ]) {
+    for (final c in [_displayNameCtrl, _usernameCtrl, _pronounsCtrl, _bioCtrl, _linkCtrl, _taglineCtrl, _genderCtrl]) {
       c.addListener(_checkChanges);
     }
   }
@@ -62,11 +54,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  // Kiểm tra có thay đổi không
   void _checkChanges() {
     final changed = _hasProfileChanged();
-    if (changed != _hasChanged) {
-      setState(() => _hasChanged = changed);
-    }
+    if (changed != _hasChanged) setState(() => _hasChanged = changed);
   }
 
   bool _hasProfileChanged() {
@@ -80,28 +71,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _selectedImage != null;
   }
 
+  // Chọn ảnh từ gallery
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-    
-    if (image != null) {
-      setState(() {
-        _selectedImage = image;
-        _hasChanged = true;
-      });
-    }
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
+    if (image != null) setState(() { _selectedImage = image; _hasChanged = true; });
   }
 
+  // Lưu thay đổi
   Future<void> _save() async {
     if (!_hasChanged) return;
 
     final userProvider = context.read<UserProvider>();
-    
     final data = <String, dynamic>{
       'displayName': _displayNameCtrl.text.trim(),
       'username': _usernameCtrl.text.trim(),
@@ -112,226 +93,123 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       'gender': _genderCtrl.text.trim(),
     };
 
-    final success = await userProvider.updateProfileWithAvatar(
-      uid: widget.user.uid,
-      data: data,
-      avatarFile: _selectedImage,
-    );
+    final success = await userProvider.updateProfileWithAvatar(uid: widget.user.uid, data: data, avatarFile: _selectedImage);
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã cập nhật thông tin thành công!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã cập nhật thông tin thành công!'), backgroundColor: Colors.green));
       Navigator.of(context).pop(true);
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(userProvider.error ?? 'Có lỗi xảy ra'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(userProvider.error ?? 'Có lỗi xảy ra'), backgroundColor: Colors.red));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
         return Scaffold(
           backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0.5,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black87),
-              onPressed: userProvider.isSaving ? null : () => Navigator.of(context).pop(),
-            ),
-            title: const Text(
-              'Chỉnh sửa trang cá nhân',
-              style: TextStyle(color: Colors.black),
-            ),
-            actions: [
-              if (userProvider.isSaving)
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              else
-                IconButton(
-                  onPressed: _hasChanged ? _save : null,
-                  icon: Icon(
-                    Icons.check,
-                    color: _hasChanged ? Colors.blue : Colors.grey,
-                  ),
-                ),
-            ],
-          ),
-          body: AbsorbPointer(
-            absorbing: userProvider.isSaving,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ==== AVATAR SECTION ====
-                  Center(
-                    child: Column(
-                      children: [
-                        GestureDetector(
-                          onTap: _pickImage,
-                          child: Stack(
-                            children: [
-                              _buildAvatar(),
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
-                                  ),
-                                  child: const Icon(
-                                    Icons.camera_alt,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: _pickImage,
-                          child: const Text('Đổi ảnh đại diện'),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  _LabeledField(label: 'Tên hiển thị', controller: _displayNameCtrl),
-                  _LabeledField(label: 'Tên người dùng', controller: _usernameCtrl),
-                  _LabeledField(label: 'Danh xưng', controller: _pronounsCtrl),
-                  _LabeledField(label: 'Tiểu sử', controller: _taglineCtrl),
-                  _LabeledField(label: 'Thêm liên kết', controller: _linkCtrl),
-                  _LabeledField(label: 'Giới thiệu', controller: _bioCtrl, maxLines: 3),
-                  _LabeledField(label: 'Giới tính', controller: _genderCtrl),
-
-                  const SizedBox(height: 20),
-
-                  Text(
-                    'Thông tin trên trang cá nhân',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // ==== INFO CARD ====
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.email_outlined, size: 18, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Text('Email', style: theme.textTheme.bodyMedium),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.user.email,
-                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Text('Ngày tham gia', style: theme.textTheme.bodyMedium),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${widget.user.createdAt.day}/${widget.user.createdAt.month}/${widget.user.createdAt.year}',
-                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          appBar: _buildAppBar(userProvider),
+          body: AbsorbPointer(absorbing: userProvider.isSaving, child: _buildBody()),
         );
       },
     );
   }
 
+  // AppBar
+  PreferredSizeWidget _buildAppBar(UserProvider userProvider) {
+    return AppBar(
+      backgroundColor: Colors.white, elevation: 0.5,
+      leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black87), onPressed: userProvider.isSaving ? null : () => Navigator.of(context).pop()),
+      title: const Text('Chỉnh sửa trang cá nhân', style: TextStyle(color: Colors.black)),
+      actions: [
+        if (userProvider.isSaving)
+          const Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+        else
+          IconButton(onPressed: _hasChanged ? _save : null, icon: Icon(Icons.check, color: _hasChanged ? Colors.blue : Colors.grey)),
+      ],
+    );
+  }
+
+  // Body
+  Widget _buildBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _buildAvatarSection(),
+        const SizedBox(height: 24),
+        _LabeledField(label: 'Tên hiển thị', controller: _displayNameCtrl),
+        _LabeledField(label: 'Tên người dùng', controller: _usernameCtrl),
+        _LabeledField(label: 'Danh xưng', controller: _pronounsCtrl),
+        _LabeledField(label: 'Tiểu sử', controller: _taglineCtrl),
+        _LabeledField(label: 'Thêm liên kết', controller: _linkCtrl),
+        _LabeledField(label: 'Giới thiệu', controller: _bioCtrl, maxLines: 3),
+        _LabeledField(label: 'Giới tính', controller: _genderCtrl),
+        const SizedBox(height: 20),
+        _buildInfoCard(),
+      ]),
+    );
+  }
+
+  // Avatar section
+  Widget _buildAvatarSection() {
+    return Center(
+      child: Column(children: [
+        GestureDetector(
+          onTap: _pickImage,
+          child: Stack(children: [
+            _buildAvatar(),
+            Positioned(bottom: 0, right: 0, child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(color: Colors.blue, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+              child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+            )),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        TextButton(onPressed: _pickImage, child: const Text('Đổi ảnh đại diện')),
+      ]),
+    );
+  }
+
+  // Avatar widget
   Widget _buildAvatar() {
     if (_selectedImage != null) {
       return FutureBuilder<dynamic>(
         future: _selectedImage!.readAsBytes(),
         builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            return CircleAvatar(
-              radius: 50,
-              backgroundImage: MemoryImage(snapshot.data),
-            );
-          }
-          return const CircleAvatar(
-            radius: 50,
-            backgroundColor: Colors.grey,
-            child: CircularProgressIndicator(),
-          );
+          if (snapshot.hasData) return CircleAvatar(radius: 50, backgroundImage: MemoryImage(snapshot.data));
+          return const CircleAvatar(radius: 50, backgroundColor: Colors.grey, child: CircularProgressIndicator());
         },
       );
     }
-
     final photoURL = widget.user.photoURL;
-    if (photoURL != null && photoURL.isNotEmpty) {
-      return CircleAvatar(
-        radius: 50,
-        backgroundImage: NetworkImage(photoURL),
-      );
-    }
+    if (photoURL != null && photoURL.isNotEmpty) return CircleAvatar(radius: 50, backgroundImage: NetworkImage(photoURL));
+    return const CircleAvatar(radius: 50, backgroundColor: Colors.grey, child: Icon(Icons.person, size: 50, color: Colors.white));
+  }
 
-    return const CircleAvatar(
-      radius: 50,
-      backgroundColor: Colors.grey,
-      child: Icon(Icons.person, size: 50, color: Colors.white),
+  // Thẻ thông tin
+  Widget _buildInfoCard() {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity, padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[300]!)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [const Icon(Icons.email_outlined, size: 18, color: Colors.grey), const SizedBox(width: 8), Text('Email', style: theme.textTheme.bodyMedium)]),
+        const SizedBox(height: 4),
+        Text(widget.user.email, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600])),
+        const SizedBox(height: 12),
+        Row(children: [const Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey), const SizedBox(width: 8), Text('Ngày tham gia', style: theme.textTheme.bodyMedium)]),
+        const SizedBox(height: 4),
+        Text('${widget.user.createdAt.day}/${widget.user.createdAt.month}/${widget.user.createdAt.year}', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600])),
+      ]),
     );
   }
 }
 
+/// Widget field có label
 class _LabeledField extends StatelessWidget {
-  const _LabeledField({
-    required this.label,
-    required this.controller,
-    this.maxLines = 1,
-  });
-
+  const _LabeledField({required this.label, required this.controller, this.maxLines = 1});
   final String label;
   final TextEditingController controller;
   final int maxLines;
@@ -340,38 +218,20 @@ class _LabeledField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 6),
-          TextField(
-            controller: controller,
-            maxLines: maxLines,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.grey[100],
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: Colors.blueAccent, width: 1.2),
-              ),
-            ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller, maxLines: maxLines,
+          decoration: InputDecoration(
+            filled: true, fillColor: Colors.grey[100],
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.blueAccent, width: 1.2)),
           ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
 }
