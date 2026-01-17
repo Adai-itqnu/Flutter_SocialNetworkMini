@@ -27,10 +27,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   double _uploadProgress = 0.0;
   PostVisibility _selectedVisibility = PostVisibility.public;
   
-  // Limits (Images only - ImgBB doesn't support video)
-  static const int maxMediaCount = 10;
-  static const int maxFileSizeMB = 10; // 10MB per image
-  static const int maxTotalSizeMB = 50; // 50MB total
+  // Imgbb 
+  static const int maxMediaCount = 10; // Số lượng ảnh
+  static const int maxFileSizeMB = 10; // Dung lượng mỗi ảnh
+  static const int maxTotalSizeMB = 50; // Tổng dung lượng
 
   bool get _canPost =>
       _captionController.text.trim().isNotEmpty || _selectedMedia.isNotEmpty;
@@ -78,7 +78,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   /// Take photo from camera
   Future<void> _takePhoto() async {
     if (_selectedMedia.length >= maxMediaCount) {
-      _showLimitMessage('Tối đa $maxMediaCount ảnh/video');
+      _showLimitMessage('Tối đa $maxMediaCount ảnh');
       return;
     }
 
@@ -163,7 +163,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (!_canPost) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Hãy nhập caption hoặc chọn ít nhất 1 ảnh/video'),
+          content: Text('Hãy nhập caption hoặc chọn ít nhất 1 ảnh'),
         ),
       );
       return;
@@ -315,7 +315,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       ),
                       if (_selectedMedia.isNotEmpty)
                         Text(
-                          '${_selectedMedia.length}/$maxMediaCount ảnh/video',
+                          '${_selectedMedia.length}/$maxMediaCount ảnh',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],

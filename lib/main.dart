@@ -66,7 +66,13 @@ class SocialMockApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PostProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => FollowProvider()),
+        ChangeNotifierProxyProvider<UserProvider, FollowProvider>(
+          create: (_) => FollowProvider(),
+          update: (_, userProvider, followProvider) {
+            followProvider?.setUserProvider(userProvider);
+            return followProvider ?? FollowProvider()..setUserProvider(userProvider);
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Mạng xã hội',

@@ -2,10 +2,18 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
+import 'user_provider.dart';
 
 class FollowProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
   final NotificationService _notificationService = NotificationService();
+
+  // Reference to UserProvider for refreshing user data after follow/unfollow
+  UserProvider? _userProvider;
+
+  void setUserProvider(UserProvider userProvider) {
+    _userProvider = userProvider;
+  }
 
   // State
   List<UserModel> _followers = [];
@@ -114,6 +122,9 @@ class FollowProvider with ChangeNotifier {
         notifyListeners();
       }
 
+      // Reload user data to update followingCount on profile
+      _userProvider?.loadUser(currentUserId);
+
       return true;
     } catch (e) {
       // Revert on error
@@ -140,6 +151,9 @@ class FollowProvider with ChangeNotifier {
       // Remove from following list
       _following.removeWhere((u) => u.uid == targetUserId);
       notifyListeners();
+
+      // Reload user data to update followingCount on profile
+      _userProvider?.loadUser(currentUserId);
 
       return true;
     } catch (e) {

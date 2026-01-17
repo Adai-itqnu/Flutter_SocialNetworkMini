@@ -471,7 +471,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         post: post,
                         author: author,
                       ),
-                      // Thanh gạch ngang xám phân chia bài viết (Facebook style)
                       Container(
                         height: 8,
                         width: double.infinity,
