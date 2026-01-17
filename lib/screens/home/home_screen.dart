@@ -391,50 +391,57 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, postProvider, authProvider, _) {
         final posts = postProvider.posts;
 
-        return CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            // Loading
-            if (postProvider.isLoading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            // Chưa có bài viết
-            else if (posts.isEmpty)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text('Chưa có bài viết nào', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
-                      const SizedBox(height: 8),
-                      Text('Hãy tạo bài viết đầu tiên!', style: TextStyle(color: Colors.grey[500])),
-                    ],
+        return RefreshIndicator(
+          onRefresh: () => postProvider.refreshPosts(),
+          color: Colors.deepPurple,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(), // Cho phép pull khi list rỗng
+            slivers: [
+              // Loading
+              if (postProvider.isLoading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              // Chưa có bài viết
+              else if (posts.isEmpty)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text('Chưa có bài viết nào', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
+                        const SizedBox(height: 8),
+                        Text('Hãy tạo bài viết đầu tiên!', style: TextStyle(color: Colors.grey[500])),
+                        const SizedBox(height: 16),
+                        Text('Vuốt xuống để làm mới', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                )
+              // Danh sách bài viết
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: posts.length,
+                    (context, index) {
+                      final post = posts[index];
+                      final author = postProvider.getPostAuthor(post.userId);
+
+                      return Column(
+                        children: [
+                          PostCard(key: ValueKey(post.postId), post: post, author: author),
+                          Container(height: 8, width: double.infinity, color: Colors.grey.shade200),
+                        ],
+                      );
+                    },
                   ),
                 ),
-              )
-            // Danh sách bài viết
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  childCount: posts.length,
-                  (context, index) {
-                    final post = posts[index];
-                    final author = postProvider.getPostAuthor(post.userId);
-
-                    return Column(
-                      children: [
-                        PostCard(key: ValueKey(post.postId), post: post, author: author),
-                        Container(height: 8, width: double.infinity, color: Colors.grey.shade200),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
         );
       },
     );
