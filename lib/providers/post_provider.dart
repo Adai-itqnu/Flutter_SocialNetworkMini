@@ -91,11 +91,10 @@ class PostProvider with ChangeNotifier {
   }
 
   // Làm mới danh sách bài viết (pull-to-refresh)
+  // Không xóa cache authors để tránh mất thông tin người dùng
   Future<void> refreshPosts() async {
-    // Stream tự động cập nhật nên chỉ cần đợi 1 chút để có hiệu ứng refresh
-    await Future.delayed(const Duration(milliseconds: 500));
-    // Xóa cache authors để tải lại
-    _postAuthors.clear();
+    // Stream tự động cập nhật, chỉ cần đợi chút để có hiệu ứng refresh
+    await Future.delayed(const Duration(milliseconds: 300));
     notifyListeners();
   }
 
