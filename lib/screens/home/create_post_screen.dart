@@ -19,7 +19,6 @@ class CreatePostScreen extends StatefulWidget {
 }
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
-  // Controllers
   final TextEditingController _captionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 

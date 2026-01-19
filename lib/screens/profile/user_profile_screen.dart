@@ -52,8 +52,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       // Tải bài viết
       _firestoreService.getUserPosts(widget.userId).listen((posts) async {
         if (mounted) {
-          final original = posts.where((p) => p.sharedPostId == null).toList();
-          final shared = posts.where((p) => p.sharedPostId != null).toList();
+          // Lọc bài viết theo visibility
+          final filteredPosts = posts.where((post) {
+            // Bài public thì ai cũng thấy
+            if (post.visibility == PostVisibility.public) return true;
+            // Bài followersOnly chỉ hiện khi đang follow
+            if (post.visibility == PostVisibility.followersOnly) {
+              return _isFollowing;
+            }
+            return true;
+          }).toList();
+
+          final original = filteredPosts.where((p) => p.sharedPostId == null).toList();
+          final shared = filteredPosts.where((p) => p.sharedPostId != null).toList();
 
           for (var post in shared) {
             if (post.sharedPostId != null && !_sharedPostsData.containsKey(post.sharedPostId)) {
@@ -85,7 +96,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           : await followProvider.followUser(currentUserId, widget.userId);
 
       final user = await _firestoreService.getUser(widget.userId);
-      if (mounted) setState(() { _isFollowing = !_isFollowing; _user = user; _isFollowLoading = false; });
+      if (mounted) {
+        setState(() { _isFollowing = !_isFollowing; _user = user; _isFollowLoading = false; });
+        // Reload bài viết để cập nhật danh sách theo visibility mới
+        _loadUserData();
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isFollowLoading = false);

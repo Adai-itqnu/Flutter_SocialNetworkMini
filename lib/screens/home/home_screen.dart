@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/post_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/follow_provider.dart';
 import '../../services/chat_service.dart';
 import '../../widgets/post_card.dart';
 import 'create_post_screen.dart';
@@ -14,8 +15,6 @@ import '../follow/my_follow_screen.dart';
 import '../profile/profile_screen.dart';
 
 /// Màn hình chính của ứng dụng
-/// Chứa 4 tab: Home Feed, Search, Follow, Profile
-/// AppBar có logo, chat button và notification button
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -387,9 +386,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Tab Home - hiển thị danh sách bài viết
   Widget _buildHomeContent() {
-    return Consumer2<PostProvider, AuthProvider>(
-      builder: (context, postProvider, authProvider, _) {
-        final posts = postProvider.posts;
+    return Consumer3<PostProvider, AuthProvider, FollowProvider>(
+      builder: (context, postProvider, authProvider, followProvider, _) {
+        final currentUserId = authProvider.userModel?.uid;
+        // Lấy danh sách ID người đang follow
+        final followingIds = followProvider.following.map((u) => u.uid).toList();
+        // Lọc bài viết theo visibility
+        final posts = postProvider.getFilteredPosts(currentUserId, followingIds);
 
         return RefreshIndicator(
           onRefresh: () => postProvider.refreshPosts(),
